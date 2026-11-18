@@ -278,7 +278,7 @@ tailscale serve --bg --https=443 http://127.0.0.1:5010
 tailscale serve status
 ```
 
-Use the port from `APP_PORT` in place of `5010`. On a Mac with the Tailscale app, the `tailscale` command may be missing from the path. Then use the command inside the app, for example `/Applications/Tailscale.app/Contents/MacOS/Tailscale`. This path is not verified.
+Use the port from `APP_PORT` in place of `5010`. On a Mac with the Tailscale app, the `tailscale` command may be missing from the path. Then use the command inside the app, for example `/Applications/Tailscale.app/Contents/MacOS/Tailscale` (checked with Tailscale 1.98.9 on macOS 26).
 
 Check: `tailscale serve status` shows a line that starts with `https://` and ends in `.ts.net`, and says it proxies to `http://127.0.0.1:5010`. That name is the app address. `--bg` keeps the setting across a restart of the computer (source below).
 
@@ -288,6 +288,8 @@ Then give Caddy that name. Take the name from the status line, with no `https://
 docker compose run --rm setup init --app-host <name>.<tailnet>.ts.net
 docker compose up -d
 ```
+
+`init` ends with a `Next:` line that also names `sync`. For this change `sync` is not necessary: `docker compose up -d` is enough.
 
 Check: the `init` output shows `APP_HOST = <the name>`. Then run `docker compose run --rm setup doctor --wait 60`. It must show `OK   The app accepts https://<the name>, the page and the live view.` A `FIX` line there means the app refuses that name; it names the fault.
 
