@@ -1,0 +1,5 @@
+# state/ holds the VAPID private key and the subscriptions. It must never
+# enter the image.
+state/
+__pycache__/
+.pytest_cache/

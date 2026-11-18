@@ -1,0 +1,179 @@
+{
+	# The remote-access proxy (tailscale serve, or a tunnel) ends TLS. Caddy
+	# serves plain HTTP on the compose network and on 127.0.0.1 only.
+	auto_https off
+}
+
+# The host names and ports come from the environment of the ui container
+# (docker-compose.yml): APP_HOST and ADMIN_HOST are the names that the remote
+# proxy sends, APP_PORT and ADMIN_PORT are the ports on this computer. The
+# defaults below end in .invalid, a name that never resolves, so an unset
+# value never opens a site to any host.
+
+# Only these hosts. A page that points another name at 127.0.0.1 (DNS
+# rebinding) lands in the catch-all below. Caddy matches the host without the
+# port, so http://127.0.0.1:<APP_PORT> (local checks) still works.
+http://{$APP_HOST:home-cameras.invalid}, http://127.0.0.1, http://localhost {
+	encode zstd gzip
+
+	# Frigate's own port has no login and makes every caller an admin, so pass
+	# through only what the app calls (ui/app/src/lib/frigate.ts). Everything
+	# else under Frigate's paths is refused: config writes, users, logs, raw
+	# config, and go2rtc's stream list, which can show a camera password.
+	@app_api {
+		method GET HEAD
+		path_regexp ^/api/(config|stats|version|review|exports|recordings/unavailable|[A-Za-z0-9_-]+/search/motion/[A-Za-z0-9_-]+|[A-Za-z0-9_-]+/recordings|[A-Za-z0-9_-]+/latest\.webp|[A-Za-z0-9_-]+/recordings/[0-9.]+/snapshot\.jpg|review/[A-Za-z0-9._-]+/clip\.mp4)$
+	}
+	# Files only: a path that ends in / would get a directory listing.
+	@app_media {
+		method GET HEAD
+		path_regexp ^/(vod|exports|clips)/.*[^/]$
+	}
+	# Only the app's own pages (any other page on this computer would
+	# otherwise get a camera stream), and only plain camera names: go2rtc can
+	# also take a source URL in src=. The Origin values are exact: Caddy ORs
+	# the values of one header field.
+	@app_live {
+		method GET
+		path /live/mse/api/ws
+		header Origin https://{$APP_HOST:home-cameras.invalid}
+		header Origin http://127.0.0.1:{$APP_PORT:5010}
+		header Origin http://localhost:{$APP_PORT:5010}
+		expression "{query.src}.matches('^[A-Za-z0-9_]+$')"
+	}
+	# Save last N min: the plain export only (not /api/export/custom, which
+	# takes ffmpeg arguments), whole seconds, at most 31 min long. The length
+	# check sits inside the handle below: there the regex has matched, so its
+	# placeholders exist. In one matcher set Caddy can run the expression
+	# first, and int() of a missing value then fails every request with 500.
+	@app_save {
+		method POST
+		path_regexp save ^/api/export/[A-Za-z0-9_-]+/start/([0-9]{1,10})/end/([0-9]{1,10})$
+	}
+	handle @app_api {
+		reverse_proxy frigate:5000
+	}
+	handle @app_media {
+		reverse_proxy frigate:5000
+	}
+	handle @app_live {
+		reverse_proxy frigate:5000
+	}
+	# Area search ("when did this spot change"): start a motion search job,
+	# or cancel one. Reading a job's results is a GET in @app_api.
+	@app_search {
+		method POST
+		path_regexp ^/api/[A-Za-z0-9_-]+/search/motion(/[A-Za-z0-9_-]+/cancel)?$
+	}
+	handle @app_search {
+		request_body {
+			max_size 4KB
+		}
+		reverse_proxy frigate:5000
+	}
+	handle @app_save {
+		@save_ok expression "int({re.save.2}) - int({re.save.1}) <= 1860 && int({re.save.2}) > int({re.save.1})"
+		handle @save_ok {
+			request_body {
+				max_size 4KB
+			}
+			reverse_proxy frigate:5000
+		}
+		handle {
+			respond "Not available here" 403
+		}
+	}
+	@frigate_other path /api/* /live/* /vod/* /exports/* /clips/* /ws
+	handle @frigate_other {
+		respond "Not available here" 403
+	}
+
+	# cam-helper (helper/): web push, summaries, the pet day. GET and POST
+	# only. A POST must be JSON from this site: a page on another origin can
+	# send a text/plain POST with no preflight, and could add its own push
+	# endpoint. JSON from another origin needs a preflight, which the helper
+	# refuses.
+	handle_path /helper/* {
+		@helper_method not method GET HEAD POST
+		@helper_not_json {
+			method POST
+			not header Content-Type application/json*
+		}
+		@helper_foreign {
+			method POST
+			not {
+				header Origin https://{$APP_HOST:home-cameras.invalid}
+				header Origin http://127.0.0.1:{$APP_PORT:5010}
+				header Origin http://localhost:{$APP_PORT:5010}
+			}
+		}
+		handle @helper_method {
+			respond "Not available here" 405
+		}
+		handle @helper_not_json {
+			respond "JSON only" 415
+		}
+		handle @helper_foreign {
+			respond "Not available here" 403
+		}
+		handle {
+			request_body {
+				max_size 16KB
+			}
+			reverse_proxy cam-helper:8000
+		}
+	}
+
+	# Extra routes of one install. An override file can mount a file such
+	# as /etc/caddy/site.d/extra.caddy; with none there, this adds nothing.
+	import /etc/caddy/site.d/*.caddy
+
+	# The app. Hashed assets cache forever; everything else revalidates.
+	handle {
+		root * /srv/app
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		@shell not path /assets/*
+		header @shell Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+# Frigate's own UI and the bridge's API, for the admin site and the setup
+# tool (127.0.0.1:<ADMIN_PORT>). Frigate's port 5000 and the bridge's 5080
+# are not published: without a Host check, any page or container on this
+# computer could use them. Here the Host must be one of these names.
+http://{$ADMIN_HOST:home-cameras-admin.invalid}:81, http://127.0.0.1:81, http://localhost:81 {
+	encode zstd gzip
+	# A websocket (live video, Frigate's control socket /ws) only from a page on
+	# this site. Without this, a page on any other origin that reaches the
+	# admin port could watch the cameras and send admin commands.
+	# A handle, not a bare respond: respond runs after handle blocks, so it
+	# never sees a request that the proxy below has taken.
+	@foreign_ws {
+		header_regexp Connection (?i)upgrade
+		not {
+			header Origin https://{$ADMIN_HOST:home-cameras-admin.invalid}
+			header Origin http://127.0.0.1:{$ADMIN_PORT:5011}
+			header Origin http://localhost:{$ADMIN_PORT:5011}
+		}
+	}
+	handle @foreign_ws {
+		respond "Not available here" 403
+	}
+	handle_path /bridge/* {
+		reverse_proxy wyze-bridge:5080
+	}
+	handle {
+		reverse_proxy frigate:5000
+	}
+}
+
+# Any other Host header.
+http:// {
+	respond "Misdirected request" 421
+}
+http://:81 {
+	respond "Misdirected request" 421
+}

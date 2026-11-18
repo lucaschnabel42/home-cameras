@@ -1,0 +1,172 @@
+/*
+ * Theme tokens. One block for each theme in light mode, and one in dark mode.
+ * Light or dark follows the phone (prefers-color-scheme). The theme is a choice
+ * on each phone: lib/theme.ts puts data-theme on <html>.
+ *
+ * A selector is [data-theme="x"], not :root[data-theme="x"], so that any
+ * element can show another theme's colours. The theme picker draws each swatch
+ * that way, from these same tokens.
+ *
+ * Graphite is the default: a device with no choice gets it. Rose is pink in
+ * light mode and purple in dark mode.
+ *
+ * Each theme has one accent. Contrast, measured with the WCAG formula for
+ * Graphite, Ocean and Sand: text and muted text on --bg and on
+ * --tile, --accent-text on both, and --on-accent on --accent are 4.5:1 or
+ * more; --band on --tile is 3:1 or more. lib/theme.test.ts repeats the check.
+ *
+ * Glass sits on live video and on photos. --text on --glass is 4.5:1 or more
+ * when the glass is painted over white and over black, in all four themes and
+ * both modes (the test checks it). That sets the dark --glass alpha to 0.68
+ * (it was 0.58, which gave 3.76 to 3.99 over white). Text on glass over media
+ * uses --text, never --muted.
+ */
+
+:root,
+[data-theme="graphite"] {
+  --bg: #f6f6f7;
+  --text: #17181b;
+  --muted: #63666d;
+  --line: rgb(23 24 27 / 0.08);
+  --tile: #ececee;
+  --glass: rgb(255 255 255 / 0.62);
+  --glass-edge: rgb(255 255 255 / 0.7);
+  --accent: #24262b;
+  --accent-text: #24262b;
+  --on-accent: #ffffff;
+  --band: #474a52;
+  --orb1: #c5cad6;
+  --orb2: #e2e5eb;
+  --orb3: #d0d5df;
+  --shadow: 0 18px 50px rgb(30 34 44 / 0.12);
+}
+
+[data-theme="ocean"] {
+  --bg: #f4f7fb;
+  --text: #0e1a27;
+  --muted: #586779;
+  --line: rgb(14 26 39 / 0.08);
+  --tile: #e8eef5;
+  --glass: rgb(255 255 255 / 0.62);
+  --glass-edge: rgb(255 255 255 / 0.7);
+  --accent: #1a5fc2;
+  --accent-text: #1a5cbd;
+  --on-accent: #ffffff;
+  --band: #1a5fc2;
+  --orb1: #8fc0ff;
+  --orb2: #cfe3ff;
+  --orb3: #a5d2f2;
+  --shadow: 0 18px 50px rgb(20 60 120 / 0.12);
+}
+
+[data-theme="sand"] {
+  --bg: #f8f4ee;
+  --text: #231d18;
+  --muted: #6f6357;
+  --line: rgb(35 29 24 / 0.08);
+  --tile: #efe8dd;
+  --glass: rgb(255 252 247 / 0.62);
+  --glass-edge: rgb(255 255 255 / 0.7);
+  --accent: #b0512a;
+  --accent-text: #a34a25;
+  --on-accent: #ffffff;
+  --band: #b0512a;
+  --orb1: #f0b089;
+  --orb2: #f6d8bf;
+  --orb3: #e8a27c;
+  --shadow: 0 18px 50px rgb(120 70 30 / 0.12);
+}
+
+[data-theme="rose"] {
+  --bg: #faf9fb;
+  --text: #16141a;
+  --muted: #6e6a75;
+  --line: rgb(22 20 26 / 0.08);
+  --tile: #f1edf2;
+  --glass: rgb(255 255 255 / 0.62);
+  --glass-edge: rgb(255 255 255 / 0.7);
+  --accent: #c93676;
+  --accent-text: #c93676;
+  --on-accent: #ffffff;
+  --band: #c93676;
+  --orb1: #ff8fbf;
+  --orb2: #ffc1db;
+  --orb3: #f49ac9;
+  --shadow: 0 18px 50px rgb(120 40 80 / 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root,
+  [data-theme="graphite"] {
+    --bg: #0c0d0f;
+    --text: #f1f2f4;
+    --muted: #9a9da5;
+    --line: rgb(255 255 255 / 0.08);
+    --tile: #16171a;
+    --glass: rgb(24 25 29 / 0.68);
+    --glass-edge: rgb(255 255 255 / 0.12);
+    --accent: #e9eaee;
+    --accent-text: #dfe1e6;
+    --on-accent: #121316;
+    --band: #c9ccd3;
+    --orb1: #30333c;
+    --orb2: #1b1d22;
+    --orb3: #3b3f4a;
+    --shadow: 0 18px 50px rgb(0 0 0 / 0.45);
+  }
+
+  [data-theme="ocean"] {
+    --bg: #070c14;
+    --text: #eef3f9;
+    --muted: #8d9db0;
+    --line: rgb(255 255 255 / 0.08);
+    --tile: #0f1723;
+    --glass: rgb(14 22 34 / 0.68);
+    --glass-edge: rgb(255 255 255 / 0.12);
+    --accent: #1f6fd6;
+    --accent-text: #7fb5ff;
+    --on-accent: #ffffff;
+    --band: #7fb5ff;
+    --orb1: #103f7d;
+    --orb2: #0a2348;
+    --orb3: #1c5aa8;
+    --shadow: 0 18px 50px rgb(0 0 0 / 0.45);
+  }
+
+  [data-theme="sand"] {
+    --bg: #12100d;
+    --text: #f5f0e9;
+    --muted: #a69c90;
+    --line: rgb(255 255 255 / 0.08);
+    --tile: #1c1915;
+    --glass: rgb(30 26 21 / 0.68);
+    --glass-edge: rgb(255 255 255 / 0.12);
+    --accent: #e08c62;
+    --accent-text: #eb9b74;
+    --on-accent: #1b120c;
+    --band: #eb9b74;
+    --orb1: #6e3018;
+    --orb2: #3f1d0f;
+    --orb3: #8c4424;
+    --shadow: 0 18px 50px rgb(0 0 0 / 0.45);
+  }
+
+  [data-theme="rose"] {
+    --bg: #0b0a0f;
+    --text: #f3f1f6;
+    --muted: #9a95a3;
+    --line: rgb(255 255 255 / 0.08);
+    --tile: #15121c;
+    --glass: rgb(22 19 30 / 0.68);
+    --glass-edge: rgb(255 255 255 / 0.12);
+    --accent: #7c4dff;
+    --accent-text: #a98bff;
+    --on-accent: #ffffff;
+    /* the dark accent is 2.6:1 on the track; the light one passes 3:1 */
+    --band: #a98bff;
+    --orb1: #4b1d8f;
+    --orb2: #2a0f55;
+    --orb3: #6a2bc0;
+    --shadow: 0 18px 50px rgb(0 0 0 / 0.45);
+  }
+}

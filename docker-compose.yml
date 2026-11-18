@@ -1,0 +1,183 @@
+# Home camera recorder.
+#
+#   cameras -> Frigate (detection, recording, live view)
+#           -> clip-exporter (padded clips of each event)
+#           -> cam-helper (web push, summaries, the pet day)
+#           -> ui (the app, and a strict proxy in front of Frigate)
+#
+# Wyze cameras come in through wyze-bridge (the "wyze" profile). Any other
+# camera comes in by its RTSP address (cameras.yml).
+#
+# Setup:   docker compose run --rm setup init --tz <Area/City> ...
+#          docker compose run --rm setup sync
+# Start:   docker compose up -d
+# Check:   docker compose run --rm setup doctor
+#
+# Every value that differs between homes is a setting in .env (see
+# .env.example). This file holds no container name and no fixed host port,
+# so a second copy can run on the same computer with other ports.
+
+services:
+  wyze-bridge:
+    profiles: ["wyze"]
+    # IDisposable's maintained fork. mrlt8's 2.10.3 cannot reach a Wyze Cam V4
+    # on firmware 4.52.9 or later: TUTK is blocked and every try ends in
+    # IOTC_ER_TIMEOUT (mrlt8/docker-wyze-bridge#1539). This fork reads V4
+    # cameras through Wyze's WebRTC backend instead.
+    # A build of the main branch. Release 4.5.0 sends the ICE servers under
+    # the wrong key (IDisposable/docker-wyze-bridge#150), and no release has
+    # the fix yet.
+    image: idisposablegithub365/wyze-bridge:sha-40373733bd8d2953fc9b65f21ba694c03bb8cc2f
+    restart: unless-stopped
+    environment:
+      - WYZE_EMAIL=${WYZE_EMAIL:-}
+      - WYZE_PASSWORD=${WYZE_PASSWORD:-}
+      - WYZE_API_ID=${API_ID:-}
+      - WYZE_API_KEY=${API_KEY:-}
+      # The two-step key (TOTP secret) of an account with two-step login.
+      - WYZE_TOTP_KEY=${WYZE_TOTP_KEY:-}
+      # Go straight to WebRTC for V4 cameras, without five TUTK failures first.
+      - MODEL_OVERRIDES=HL_CAM4:is_webrtc=true
+      # No stream login: the RTSP port is not published to the host, so only
+      # containers on this compose network can read the stream.
+    # No published port: the setup tool reads the bridge's API on the compose
+    # network, and a person reaches its web UI through the admin site at
+    # http://127.0.0.1:<ADMIN_PORT>/bridge/ (ui/Caddyfile).
+    volumes:
+      - ./wyze-bridge/config:/config
+
+  frigate:
+    image: ghcr.io/blakeblackshear/frigate:0.18.1
+    restart: unless-stopped
+    depends_on:
+      wyze-bridge:
+        condition: service_started
+        # The bridge runs only with the "wyze" profile.
+        required: false
+    shm_size: ${FRIGATE_SHM_SIZE:-256mb}
+    environment:
+      - TZ=${TZ:-UTC}
+    ports:
+      # Port 5000 (no login) is not published: the ui service reaches it on
+      # the compose network, with a Host check (ui/Caddyfile). These two are
+      # on 127.0.0.1 unless FRIGATE_BIND_ADDRESS opens them to the network
+      # (0.0.0.0). The app does not need them: its live view runs through ui.
+      - ${FRIGATE_BIND_ADDRESS:-127.0.0.1}:${FRIGATE_HTTPS_PORT:-8971}:8971 # Frigate's own UI, HTTPS with Frigate's login
+      - ${FRIGATE_BIND_ADDRESS:-127.0.0.1}:${WEBRTC_PORT:-8555}:8555/tcp # WebRTC live view
+      - ${FRIGATE_BIND_ADDRESS:-127.0.0.1}:${WEBRTC_PORT:-8555}:8555/udp
+    volumes:
+      - ./frigate/config:/config
+      - ${MEDIA_DIR:-./media}:/media/frigate
+      # The SQLite database stays in a volume. On a Windows or macOS bind
+      # mount its file locks are slow and not reliable.
+      - frigate-db:/db
+      - type: tmpfs
+        target: /tmp/cache
+        tmpfs:
+          size: 512000000
+
+  clip-exporter:
+    image: python:3.12-slim
+    restart: unless-stopped
+    depends_on:
+      - frigate
+    environment:
+      - FRIGATE_URL=http://frigate:5000
+      - PAD_SECONDS=${CLIP_PAD_SECONDS:-150}
+      # The same number of days as record.continuous.days in the Frigate
+      # config: the exporter does not ask for a clip that is gone.
+      - RECORD_KEEP_DAYS=${RECORD_DAYS:-7}
+      # Days to keep each event clip. Empty: for ever.
+      - CLIP_KEEP_DAYS=${CLIP_KEEP_DAYS:-}
+      - TZ=${TZ:-UTC}
+      - PYTHONUNBUFFERED=1
+    command: ["python", "/app/export_clips.py"]
+    volumes:
+      - ./exporter:/app:ro
+      - ./exporter/state:/state
+      # Read-only, at Frigate's own path, so the exporter can check each file.
+      - ${MEDIA_DIR:-./media}/exports:/media/frigate/exports:ro
+
+  cam-helper:
+    build: ./helper
+    restart: unless-stopped
+    depends_on:
+      - frigate
+    environment:
+      - FRIGATE_URL=http://frigate:5000
+      # Empty: no summaries. For example http://host.docker.internal:11434
+      # for Ollama on this computer.
+      - OLLAMA_URL=${OLLAMA_URL:-}
+      - GPU_GATE=${GPU_GATE:-}
+      - INDOOR_CAMERAS=${INDOOR_CAMERAS:-}
+      - PET_NAME=${PET_NAME:-}
+      - PET_CAMERA=${PET_CAMERA:-}
+      - PET_LABEL=${PET_LABEL:-dog}
+      - PET_SEX=${PET_SEX:-male}
+      # The contact in each push message. Empty: https://<APP_HOST>.
+      - VAPID_SUBJECT=${VAPID_SUBJECT:-}
+      - APP_HOST=${APP_HOST:-}
+      - TZ=${TZ:-UTC}
+      - PYTHONUNBUFFERED=1
+    extra_hosts:
+      # Linux has no host.docker.internal by default; Docker Desktop has.
+      - host.docker.internal:host-gateway
+    volumes:
+      - ./helper/state:/data
+
+  ui:
+    build: ./ui
+    restart: unless-stopped
+    depends_on:
+      - frigate
+    environment:
+      # The names and ports that ui/Caddyfile allows. APP_HOST is the name of
+      # the remote proxy (for example the tailscale serve name).
+      - APP_HOST=${APP_HOST:-home-cameras.invalid}
+      - APP_PORT=${APP_PORT:-5010}
+      - ADMIN_HOST=${ADMIN_HOST:-home-cameras-admin.invalid}
+      - ADMIN_PORT=${ADMIN_PORT:-5011}
+    ports:
+      # 127.0.0.1 only: remote devices come in through the remote proxy.
+      - 127.0.0.1:${APP_PORT:-5010}:80 # the app
+      - 127.0.0.1:${ADMIN_PORT:-5011}:81 # Frigate's UI with no login, and the bridge's UI
+    volumes:
+      # Mounted, not copied, so an edit takes effect with a restart of ui.
+      - ./ui/Caddyfile:/etc/caddy/Caddyfile:ro
+
+  # The setup tool: init, sync, doctor. It runs only with
+  # "docker compose run --rm setup <command>".
+  setup:
+    profiles: ["setup"]
+    build: ./setup
+    environment:
+      - TZ=${TZ:-UTC}
+    volumes:
+      - .:/work
+      - ${MEDIA_DIR:-./media}:/media:ro
+      # The Docker socket, for the container checks of "doctor". The socket
+      # gives full control of Docker; the setup tool only reads from it.
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # All the Python tests (helper, exporter, setup), with Docker only:
+  #   docker compose run --rm test
+  test:
+    profiles: ["test"]
+    image: python:3.12-slim
+    working_dir: /src
+    environment:
+      - PIP_DISABLE_PIP_VERSION_CHECK=1
+      - PYTHONDONTWRITEBYTECODE=1
+    command:
+      - sh
+      - -c
+      - >-
+        pip install -q --root-user-action=ignore -r helper/requirements.txt ruamel.yaml==0.18.16 pytest &&
+        python -m pytest -q -p no:cacheprovider helper &&
+        python -m pytest -q -p no:cacheprovider exporter &&
+        python -m pytest -q -p no:cacheprovider setup
+    volumes:
+      - .:/src
+
+volumes:
+  frigate-db:

@@ -1,0 +1,28 @@
+.env
+wyze-bridge/tokens/
+exporter/state/
+frigate/config/model_cache/
+frigate/config/*.db
+frigate/config/backup.db
+frigate/config/.jwt_secret
+frigate/config/.exports
+frigate/config/go2rtc_homekit.yml
+__pycache__/
+.pytest_cache/
+frigate/config/*.lock
+frigate/config/.vacuum
+frigate/config/.runtime_state.json
+frigate/config/backup_config.yaml
+wyze-bridge/config/
+frigate/config/.search_stats.json
+ui/mockup/img/
+ui/app/dist/
+ui/app/node_modules/
+logs/
+helper/state/
+# The install's own files: camera addresses can hold passwords, and the
+# Frigate config is made by "setup sync" from frigate/config.template.yml.
+cameras.yml
+frigate/config/config.yml
+media/
+*.tmp

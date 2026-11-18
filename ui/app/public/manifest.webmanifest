@@ -1,0 +1,15 @@
+{
+  "name": "Cameras",
+  "short_name": "Cameras",
+  "description": "Live view and clips from the home cameras.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#faf9fb",
+  "theme_color": "#faf9fb",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

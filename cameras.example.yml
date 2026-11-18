@@ -1,0 +1,29 @@
+# Cameras that are not Wyze cameras: one entry for each camera, by its RTSP
+# address. Copy this file to cameras.yml and edit it, then run
+#   docker compose run --rm setup sync
+#   docker compose restart frigate
+#
+# cameras.yml is gitignored, because an RTSP address often holds the camera's
+# password. Never commit it.
+#
+# Each entry:
+#   name    The Frigate camera name: letters, digits and "_" only. The app
+#           shows "front_door" as "Front door".
+#   rtsp    The main stream. Recording uses this stream.
+#   sub     Optional. A smaller stream of the same camera. Detection uses it
+#           when it is given, which costs less CPU.
+#   audio   Optional, true or false (default false). true when the main
+#           stream has a sound track: Frigate then listens for barks, smoke
+#           alarms, and breaking glass.
+#
+# The camera maker's manual gives the RTSP address. Many cameras need RTSP to
+# be turned on in their app first.
+
+cameras:
+  - name: front_door
+    rtsp: rtsp://user:password@192.168.1.50:554/stream1
+    sub: rtsp://user:password@192.168.1.50:554/stream2
+    audio: true
+
+  - name: garage
+    rtsp: rtsp://user:password@192.168.1.51:554/h264Preview_01_main

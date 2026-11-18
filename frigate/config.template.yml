@@ -1,0 +1,122 @@
+# home-cameras: made by setup sync from frigate/config.template.yml
+#
+# Frigate 0.18 config template. "docker compose run --rm setup sync" copies
+# it to frigate/config/config.yml when that file does not exist yet. The
+# first line above marks a config that sync made. In such a config, every
+# sync sets these values from .env:
+#   detectors and model      <- FRIGATE_DETECTOR (openvino or cpu)
+#   record ... days          <- RECORD_DAYS
+#   go2rtc.webrtc.candidates <- WEBRTC_CANDIDATES and WEBRTC_PORT
+# and adds one camera, one go2rtc stream, and one clean stream for each Wyze
+# camera of the bridge and each camera in cameras.yml.
+#
+# Settings here apply to every camera. After the first sync, edit
+# frigate/config/config.yml, not this file. sync keeps every edit except
+# the values above and the address of each camera, which come from .env,
+# the bridge, and cameras.yml.
+
+mqtt:
+  enabled: false
+
+database:
+  path: /db/frigate.db
+
+# The detector. The setup tool puts one of these two here:
+# - x86-64: OpenVINO on the CPU with the SSDLite MobileNet v2 model that the
+#   Frigate image holds. The Frigate documents call OpenVINO in CPU mode
+#   "often more efficient" than the CPU detector.
+# - arm64 (for example a Mac with Apple silicon): the CPU detector with the
+#   TensorFlow Lite model of the image. Docker on a Mac cannot reach the
+#   Apple Neural Engine; Frigate's Apple Silicon detector is a separate
+#   program that runs outside Docker.
+detectors:
+  ov:
+    type: openvino
+    device: CPU
+model:
+  width: 300
+  height: 300
+  input_tensor: nhwc
+  input_pixel_format: bgr
+  path: /openvino-model/ssdlite_mobilenet_v2.xml
+  labelmap_path: /openvino-model/coco_91cl_bkgr.txt
+
+go2rtc:
+  # The clean streams. Some cameras send a damaged frame now and then, and a
+  # browser's decoder stops on it. Each <camera>_clean stream is the same
+  # video, decoded and encoded again by ffmpeg, which hides the damage.
+  # go2rtc starts that ffmpeg only while a person watches (about 0.8 of one
+  # CPU core for each viewer). The app starts on the direct stream and
+  # changes to the clean stream after 3 to 4 s. "clean" below is the encode
+  # template: 1 keyframe each second (-g 20 at 20 fps), at most 2.5 Mbit/s,
+  # no audio. A stream line must hold no space and no { or }.
+  ffmpeg:
+    clean: "-c:v libx264 -g 20 -profile:v high -level:v 4.1 -preset:v veryfast -tune:v zerolatency -pix_fmt:v yuv420p -crf 26 -maxrate 2500k -bufsize 2500k"
+  streams: {}
+  webrtc:
+    candidates:
+      - stun:8555
+
+detect:
+  enabled: true
+  width: 1280
+  height: 720
+  fps: 5
+
+objects:
+  track:
+    - person
+    - dog
+    - cat
+
+# Sounds. Each heard sound is an event and joins a review item. bark and howl
+# are a dog; smoke_detector and fire_alarm a smoke alarm; shatter is glass
+# breaking. Not "glass" or "breaking": those also fire on dishes. cam-helper
+# sends the push alerts from these events. Audio is on for each camera that
+# has a sound track (the setup tool sets it per camera).
+audio:
+  enabled: false
+  listen:
+    - bark
+    - howl
+    - smoke_detector
+    - fire_alarm
+    - shatter
+
+review:
+  alerts:
+    labels:
+      - person
+
+record:
+  enabled: true
+  # Keep every segment for RECORD_DAYS days. clip-exporter cuts the padded
+  # clips from these, so this must stay longer than any export delay. About
+  # 7 GB for each camera and day. The exported clips (media/exports) do not
+  # expire; they are the long-term record of each event.
+  continuous:
+    days: 7
+  alerts:
+    pre_capture: 30
+    post_capture: 30
+    retain:
+      days: 7
+      mode: all
+  detections:
+    pre_capture: 30
+    post_capture: 30
+    retain:
+      days: 7
+      mode: all
+
+snapshots:
+  enabled: true
+  retain:
+    default: 30
+
+cameras: {}
+
+auth:
+  failed_login_rate_limit: 1/second;5/minute;20/hour
+
+version: 0.18-0
