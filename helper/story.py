@@ -33,6 +33,10 @@ What this does not do:
   summary that says "plays on the couch" for a pet that only stood is play.
 - The other-animal rule (a cat in the story of a dog, a dog in the story of
   a cat) reads Frigate events of that label on this camera only.
+- The room word of the prompt is the title of the pet camera (the user's
+  name, else the derived name). The capital rule also allows the words of a
+  user's name that keep their capital (names.proper_words: "TV", "Emma's").
+  It does not allow a capital that the derived name would add.
 - Ordinals "first" and "second" pass the number rule (they order, they do
   not count); "third" and up are rejected.
 """
@@ -47,6 +51,7 @@ import numpy as np
 
 import alerts
 import jsonstore
+import names
 import pet_day
 import summaries
 
@@ -121,10 +126,16 @@ _PLACE_PHRASE_WORDS = {"couch", "sofa", "floor", "rug", "kitchen", "window", "do
 _SENTENCE = re.compile(r"(?<=[.!?])\s+")
 
 
-def _allowed_capitals(pet):
+def _allowed_capitals(pet, title=None):
     """The words that keep a capital inside a sentence: the pet's name, the
-    days, and the months."""
-    return CALENDAR_CAPITALS | set(pet.name.replace("-", " ").split())
+    days, the months, and the proper words of a user's name of the pet camera
+    (title; None or the derived name adds none). A possessive is also kept
+    without its 's, because the checks compare the word without it."""
+    allowed = CALENDAR_CAPITALS | set(pet.name.replace("-", " ").split())
+    if title and title != alerts.camera_name(pet.camera):
+        for w in names.proper_words(title):
+            allowed |= {w, re.sub(r"['’]s$", "", w)}
+    return allowed
 
 
 def _objects(pet):
@@ -282,16 +293,24 @@ def _said_pronouns(pet):
     return sorted(pet.wrong_pronouns - {"hers", "herself", "himself"})
 
 
-def system_prompt(pet):
-    """SYSTEM with the pet's name, sex, label, and pronouns filled in."""
+def room_words(camera, title=None):
+    """The title of the pet camera as it reads in the prompt: rule 1 of the
+    place phrase (names.in_sentence). With no title, the derived name."""
+    return names.in_sentence(title or alerts.camera_name(camera))
+
+
+def system_prompt(pet, title=None):
+    """SYSTEM with the pet's name, sex, label, pronouns, and the title of the
+    pet camera (None: the derived name) filled in."""
     return SYSTEM.format(
         name=pet.name, sex=pet.sex, label=pet.label, he=pet.he, his=pet.his,
-        other=pet.other_animal, room=alerts.camera_name(pet.camera).lower(),
+        other=pet.other_animal, room=room_words(pet.camera, title),
         wrong=", ".join(f'"{w}"' for w in _said_pronouns(pet)))
 
 
-def build_prompt(date, episodes, final, pet):
-    """(system, user) messages for the story call."""
+def build_prompt(date, episodes, final, pet, title=None):
+    """(system, user) messages for the story call. title is the title of the
+    pet camera (None: the derived name)."""
     weekday = datetime.date.fromisoformat(date).strftime("%A")
     when = ("This is the story of the whole day." if final
             else "This is the story so far; the day is not over yet.")
@@ -305,10 +324,10 @@ def build_prompt(date, episodes, final, pet):
     user = (f"Day: {weekday}. {when}\n"
             "Episodes in time order (\"part\" is the part of the day; \"notes\" are what the "
             "camera saw):\n" + json.dumps(listed, indent=1, ensure_ascii=False))
-    return system_prompt(pet), user
+    return system_prompt(pet, title), user
 
 
-def parse_answer(content, pet):
+def parse_answer(content, pet, title=None):
     """The model's JSON. A Title Case title ("A Quiet Day Stroll") is made a
     sentence first, as summary titles are: the capitals rule is for names."""
     try:
@@ -316,15 +335,16 @@ def parse_answer(content, pet):
     except (TypeError, ValueError):
         return None
     if isinstance(answer, dict) and isinstance(answer.get("title"), str):
-        answer["title"] = title_sentence(answer["title"].strip(), pet)
+        answer["title"] = title_sentence(answer["title"].strip(), pet, title)
     return answer
 
 
-def title_sentence(title, pet):
+def title_sentence(title, pet, camera_title=None):
     """"Rex's Day of Rest" -> "Rex's day of rest": after the first word, a
     capital stays only on the pet's name, a day, or a month. The model writes
-    titles in full or partial Title Case."""
-    allowed = _allowed_capitals(pet)
+    titles in full or partial Title Case. camera_title is the title of the
+    pet camera (_allowed_capitals)."""
+    allowed = _allowed_capitals(pet, camera_title)
     out, first = [], True
     for m in re.finditer(r"\S+", title):
         w = m.group(0)
@@ -343,8 +363,9 @@ def _sentences(text):
     return [x for x in _SENTENCE.split(text.strip()) if x.strip()]
 
 
-def _word_checks(text, where, pet):
-    """Errors for the rules that look at single words (title and chapters)."""
+def _word_checks(text, where, pet, title=None):
+    """Errors for the rules that look at single words (title and chapters).
+    title is the title of the pet camera (_allowed_capitals)."""
     errors = []
     if re.search(r"\d", text):
         errors.append(f"{where}: write no digits.")
@@ -364,7 +385,7 @@ def _word_checks(text, where, pet):
                       f'write "{pet.name}" or "{pet.he}".')
     starts = {m.start(1) for m in re.finditer(r"(?:^|[.!?]['\"”’)]*\s+)[\"“‘(]*([A-Za-z])", text)}
     caps = []
-    allowed = _allowed_capitals(pet)
+    allowed = _allowed_capitals(pet, title)
     for m in _WORD.finditer(text):
         w = m.group(0)
         base = re.sub(r"['’]s$", "", w)
@@ -389,10 +410,11 @@ def _parts_ok(text, start, end):
     return wrong
 
 
-def check(answer, episodes, other_events, pet):
+def check(answer, episodes, other_events, pet, camera_title=None):
     """Every broken rule as a sentence for the model; [] when the story passes.
 
-    other_events: Frigate events of the other animal (pet.other_animal)."""
+    other_events: Frigate events of the other animal (pet.other_animal).
+    camera_title: the title of the pet camera (_allowed_capitals)."""
     if not isinstance(answer, dict):
         return ["Answer with one JSON object: {\"title\": \"...\", \"chapters\": [...]}."]
     errors = []
@@ -421,7 +443,7 @@ def check(answer, episodes, other_events, pet):
             used.setdefault(i, n)
         if not 1 <= len(_sentences(text)) <= MAX_SENTENCES:
             errors.append(f"{where}: write one to {MAX_SENTENCES} sentences.")
-        errors += _word_checks(text, where, pet)
+        errors += _word_checks(text, where, pet, camera_title)
         mine = [by_id[i] for i in ch["episodes"] if i in by_id]
         if not mine:
             continue
@@ -462,7 +484,7 @@ def check(answer, episodes, other_events, pet):
     if repeated:
         errors.append(f"Do not repeat a phrase more than twice (found: {'; '.join(repeated)}).")
     if title:
-        errors += _word_checks(title, "title", pet)
+        errors += _word_checks(title, "title", pet, camera_title)
         all_notes = " ".join(" ".join(e["notes"]) for e in episodes)
         missing = sorted(_objects_in(title, pet) - _objects_in(all_notes, pet))
         if missing:
@@ -563,10 +585,14 @@ def template(episodes, runs, items_by_id, moments_by_review, events, pet, final,
 
 class StoryWriter:
     """Writes and keeps the stories. pet_days is a pet_day.PetDay; summarizer
-    a summaries.Summarizer (summaries(after), backlog(after, before))."""
+    a summaries.Summarizer (summaries(after), backlog(after, before)).
+    title_of gives the title of a camera (names.Names.title). A stored story
+    keeps its words."""
 
-    def __init__(self, frigate, pet_days, summarizer, chat, gpu_check, store_path, pet, clock):
+    def __init__(self, frigate, pet_days, summarizer, chat, gpu_check, store_path, pet, clock,
+                 title_of=alerts.camera_name):
         self.frigate = frigate
+        self.title_of = title_of
         self.pet_days = pet_days
         self.summarizer = summarizer
         self.chat = chat
@@ -631,13 +657,14 @@ class StoryWriter:
         now = self.clock()
         story, how, errors = None, "template", []
         if use_model and episodes:
-            system, user = build_prompt(date, episodes, final, self.pet)
+            camera_title = self.title_of(self.pet.camera)
+            system, user = build_prompt(date, episodes, final, self.pet, camera_title)
             messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
             try:
                 for attempt in ("first", "retry"):
                     content = self._ask(messages)
-                    answer = parse_answer(content, self.pet)
-                    errors = check(answer, episodes, others, self.pet)
+                    answer = parse_answer(content, self.pet, camera_title)
+                    errors = check(answer, episodes, others, self.pet, camera_title)
                     log.info("story %s, %s answer: %s", date, attempt,
                              "passes" if not errors else "; ".join(errors))
                     if not errors:

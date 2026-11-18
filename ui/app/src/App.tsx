@@ -1,4 +1,4 @@
-import { Bell, Palette, SquaresFour } from "@phosphor-icons/react";
+import { Bell, Palette, SquaresFour, Tag } from "@phosphor-icons/react";
 import { AnimatePresence, MotionConfig } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityFeed, type PlayRequest } from "./components/ActivityFeed";
@@ -7,18 +7,24 @@ import { AppearanceSheet } from "./components/AppearanceSheet";
 import { CameraView } from "./components/CameraView";
 import { ClipPlayer } from "./components/ClipPlayer";
 import { CameraGrid } from "./components/CameraGrid";
+import { GroupBoard } from "./components/GroupBoard";
+import { HomeViewChips } from "./components/HomeViewChips";
+import { NamesSheet } from "./components/NamesSheet";
 import { NoCameras } from "./components/NoCameras";
 import { PetDayCard, PetDayView, usePetDays } from "./components/PetDay";
 import { SecurityMode } from "./components/security/SecurityMode";
 import { AppConfigContext } from "./hooks/useAppConfig";
+import { TitleContext, titleFn, useNames } from "./hooks/useNames";
 import { usePoll } from "./hooks/usePoll";
 import { DEFAULT_CONFIG, getAppConfig } from "./lib/appConfig";
 import { activeDetections } from "./lib/detections";
 import { downSentence, downSince, gapViews } from "./lib/downSince";
 import { buildFeed } from "./lib/feed";
-import { longDate } from "./lib/format";
-import { cameraTitle, getCameras, getExports, getGaps, getOnline, getRecordDays, getReviews, saveLast } from "./lib/frigate";
+import { longDate, shortDate } from "./lib/format";
+import { getCameras, getExports, getGaps, getOnline, getRecordDays, getReviews, saveLast } from "./lib/frigate";
 import { getLastLive, getSummaries } from "./lib/helper";
+import { readHomeView, resolveHomeView, writeHomeView, type HomeView } from "./lib/homeView";
+import { applyNames, groupSections } from "./lib/names";
 import { caption } from "./lib/labels";
 import { focusReturn } from "./lib/focusReturn";
 import { FEED_S, listEndLine } from "./lib/listEnd";
@@ -33,6 +39,7 @@ type View =
   | { kind: "clip"; clip: PlayRequest }
   | { kind: "alerts" }
   | { kind: "theme" }
+  | { kind: "names" }
   | { kind: "pet" }
   | { kind: "security" };
 
@@ -69,6 +76,16 @@ export default function App() {
   const config = usePoll(getAppConfig, 10 * 60_000).data ?? DEFAULT_CONFIG;
   const pet = config.pet;
   const petDays = usePetDays(config.features.petDay);
+  // The user's names and groups, from cam-helper. Optional: without it the
+  // titles are the derived names, as before. The Frigate key stays the key.
+  const names = useNames();
+  const titleOf = useMemo(() => titleFn(names.doc), [names.doc]);
+  // What Home shows on this device: all cameras, by group, or one group.
+  const [homeView, setHomeViewState] = useState<HomeView>(readHomeView);
+  const setHomeView = (v: HomeView) => {
+    setHomeViewState(v);
+    writeHomeView(v);
+  };
 
   const [view, setViewState] = useState<View>({ kind: "home" });
   // Overlays get a history entry, so the iOS edge swipe and Android back close them.
@@ -145,7 +162,7 @@ export default function App() {
     history.replaceState(history.state, "", location.pathname);
     setLinked(null);
     if (e?.clipUrl) {
-      const title = summaries.data?.[linked]?.title ?? caption(e.labels, cameraTitle(e.camera), pet);
+      const title = summaries.data?.[linked]?.title ?? caption(e.labels, titleOf(e.camera), pet);
       // Start at the event the alert named, not at the first event of its clip.
       const startAt = e.moments.find((m) => m.id === linked)?.start;
       setView({ kind: "clip", clip: { title, camera: e.camera, start: e.start, clipUrl: e.clipUrl, window: e.window, shareUrl: e.shareUrl, startAt } });
@@ -156,7 +173,11 @@ export default function App() {
   // The helper and the gap list are extras: their failure is not "can't reach the recorder".
   const unreachable = [cameras, online, reviews, exports].some((p) => p.error);
   const nothingLoaded = !cameras.data && !reviews.data;
-  const cams = cameras.data;
+  const cams = useMemo(() => cameras.data && applyNames(cameras.data, names.doc), [cameras.data, names.doc]);
+  const sections = useMemo(() => (cams ? groupSections(cams, names.doc) : []), [cams, names.doc]);
+  const groups = sections.filter((s) => s.id !== null);
+  const shownView = cams ? resolveHomeView(homeView, cams, names.doc) : homeView;
+  const oneGroup = shownView.kind === "group" ? sections.find((s) => s.id === shownView.id) : undefined;
   // undefined while stats are unknown (never loaded, or the last poll failed): a
   // tile then tries to play instead of showing a state that may be stale.
   const onlineMap = online.error ? undefined : online.data;
@@ -193,6 +214,7 @@ export default function App() {
 
   return (
     <AppConfigContext.Provider value={config}>
+      <TitleContext.Provider value={titleOf}>
       <MotionConfig reducedMotion="user">
         {/* While an overlay is open, the home screen is inert: VoiceOver and
             the keyboard stay in the overlay. */}
@@ -200,13 +222,22 @@ export default function App() {
           <header className="home-head">
             <div>
               <h1 className="title">Home</h1>
-              <p className="subtitle">{longDate(now)}</p>
+              {/* The phone header has four buttons: the long date would take two lines there. */}
+              <p className="subtitle">
+                <span className="date-long">{longDate(now)}</span>
+                <span className="date-short">{shortDate(now)}</span>
+              </p>
             </div>
             <div className="home-actions">
               {cams && cams.length > 0 && (
                 <button className="wall-open glass" onClick={() => setView({ kind: "security" })} aria-label="Security mode">
                   <SquaresFour size={20} aria-hidden="true" />
                   <span aria-hidden="true">Security mode</span>
+                </button>
+              )}
+              {cams && cams.length > 0 && (
+                <button className="round glass" onClick={() => setView({ kind: "names" })} aria-label="Names and groups" title="Names and groups">
+                  <Tag size={20} aria-hidden="true" />
                 </button>
               )}
               <button className="round glass" onClick={() => setView({ kind: "theme" })} aria-label="Theme">
@@ -233,16 +264,29 @@ export default function App() {
                 </div>
               )}
               {cams && statsKnown && cams.length === 0 && <NoCameras />}
-              {cams && statsKnown && cams.length > 0 && (
-                <CameraGrid
-                  cameras={cams}
-                  online={onlineMap}
-                  active={active}
-                  paused={view.kind !== "home"}
-                  downText={downText}
-                  onOpen={openCamera}
-                />
-              )}
+              {cams && statsKnown && cams.length > 0 && groups.length > 0 && <HomeViewChips view={shownView} groups={groups} onView={setHomeView} />}
+              {cams && statsKnown && cams.length > 0 &&
+                (shownView.kind === "groups" ? (
+                  <GroupBoard
+                    sections={sections}
+                    online={onlineMap}
+                    active={active}
+                    paused={view.kind !== "home"}
+                    downText={downText}
+                    onOpen={openCamera}
+                    onGroup={(id) => setHomeView({ kind: "group", id })}
+                  />
+                ) : (
+                  <CameraGrid
+                    key={oneGroup?.id ?? "all"}
+                    cameras={oneGroup?.cameras ?? cams}
+                    online={onlineMap}
+                    active={active}
+                    paused={view.kind !== "home"}
+                    downText={downText}
+                    onOpen={openCamera}
+                  />
+                ))}
               {cams && statsKnown && pet && <PetDayCard pet={pet} days={petDays} onOpen={() => setView({ kind: "pet" })} />}
             </div>
 
@@ -285,10 +329,12 @@ export default function App() {
           )}
           {view.kind === "alerts" && <AlertsSheet key="alerts" onClose={() => setView({ kind: "home" })} />}
           {view.kind === "theme" && <AppearanceSheet key="theme" onClose={() => setView({ kind: "home" })} />}
+          {view.kind === "names" && cams && <NamesSheet key="names" cameras={cams} names={names} onClose={() => setView({ kind: "home" })} />}
           {view.kind === "security" && cams && (
             <SecurityMode
               key="security"
               cameras={cams}
+              names={names.doc}
               online={onlineMap}
               reviews={reviews.data ?? []}
               events={feed.events}
@@ -301,6 +347,7 @@ export default function App() {
           {view.kind === "pet" && pet && <PetDayView key="pet" pet={pet} days={petDays} onClose={() => setView({ kind: "home" })} onPlay={play} />}
         </AnimatePresence>
       </MotionConfig>
+      </TitleContext.Provider>
     </AppConfigContext.Provider>
   );
 }

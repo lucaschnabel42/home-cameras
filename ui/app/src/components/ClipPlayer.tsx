@@ -7,7 +7,8 @@ import { useDialog } from "../hooks/useDialog";
 import { useZoomPan } from "../hooks/useZoomPan";
 import { shareMode } from "../lib/shareMode";
 import { enterFullscreen } from "../lib/fullscreen";
-import { cameraTitle, getReviewsIn, getSegments } from "../lib/frigate";
+import { getReviewsIn, getSegments } from "../lib/frigate";
+import { useTitleOf } from "../hooks/useNames";
 import type { Summary } from "../lib/helper";
 import { caption } from "../lib/labels";
 import {
@@ -54,6 +55,7 @@ export function ClipPlayer({
   onClose: () => void;
 }) {
   const pet = usePet();
+  const cameraTitle = useTitleOf();
   const { titleId, back: backButton, root: dialogRoot } = useDialog(onClose);
   const video = useRef<HTMLVideoElement>(null);
   const stage = useRef<HTMLDivElement>(null);

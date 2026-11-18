@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 // The household's zone; the DST cases below depend on it.
 process.env.TZ = "America/Chicago";
-import { clockTime, clockTimeSeconds, dayPart, longDate, minutesLabel, position, shortDay, timeRange } from "./format";
+import { clockTime, clockTimeSeconds, dayPart, longDate, minutesLabel, position, shortDate, shortDay, timeRange } from "./format";
 
 const at = (d: number, h: number, m = 0) => new Date(2026, 9, d, h, m).getTime() / 1000;
 const now = new Date(2026, 9, 14, 13, 0);
@@ -11,6 +11,12 @@ describe("clockTime", () => {
   it("writes a lower-case 12-hour time", () => {
     expect(clockTime(at(14, 14, 5))).toBe("2:05 pm");
     expect(clockTime(at(14, 0, 38))).toBe("12:38 am");
+  });
+});
+
+describe("shortDate", () => {
+  it("gives the short weekday, the short month and the day", () => {
+    expect(shortDate(new Date(2026, 9, 14, 12))).toBe("Wed, Oct 14");
   });
 });
 

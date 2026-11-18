@@ -1,6 +1,7 @@
 // Client for cam-helper (helper/), which Caddy serves at /helper on this
 // origin. Every call here is optional: the app works when the helper is down.
 // The install settings (/helper/config) are in appConfig.ts.
+import { parseNames, type NamesDoc } from "./names";
 
 const TIMEOUT_MS = 10_000;
 
@@ -27,6 +28,49 @@ export interface LastLive {
   source: string;
 }
 export const getLastLive = () => call<{ cameras: Record<string, LastLive> }>("/cameras").then((r) => r.cameras);
+
+/** The names of the cameras and the groups (lib/names.ts). Fails when cam-helper does not answer. */
+export const getNames = () => call<unknown>("/names").then(parseNames);
+
+export type SaveResult =
+  | { kind: "saved"; names: NamesDoc }
+  /** Another device saved first. Nothing was stored; `names` is the stored document. */
+  | { kind: "conflict"; error: string; names: NamesDoc }
+  /** cam-helper refused the document (400) or did not answer. */
+  | { kind: "failed"; error: string };
+
+/**
+ * Store a whole document. `rev` is the revision the client read; cam-helper
+ * stores the document only when it is the stored revision. The body has
+ * the fields in contract order.
+ */
+export async function saveNames(doc: NamesDoc): Promise<SaveResult> {
+  const body = {
+    rev: doc.rev,
+    cameras: Object.fromEntries(
+      Object.entries(doc.cameras).map(([k, e]) => [k, { ...(e.name ? { name: e.name } : {}), ...(e.group ? { group: e.group } : {}) }]),
+    ),
+    groups: doc.groups.map((g) => ({ id: g.id, name: g.name })),
+  };
+  try {
+    const r = await fetch("/helper/names", {
+      method: "POST",
+      credentials: "same-origin",
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const answer = (await r.json().catch(() => ({}))) as { error?: unknown; names?: unknown };
+    if (r.ok) return { kind: "saved", names: parseNames(answer) };
+    const error = typeof answer.error === "string" ? answer.error : `cam-helper returned ${r.status}`;
+    // A 409 with no document in it must not empty the names of this screen.
+    const stored = answer.names;
+    if (r.status === 409 && stored && typeof stored === "object") return { kind: "conflict", error, names: parseNames(stored) };
+    return { kind: "failed", error };
+  } catch {
+    return { kind: "failed", error: "The names service does not answer." };
+  }
+}
 
 export const getPushKey = () => call<{ publicKey: string }>("/push/key");
 export const subscribePush = (sub: PushSubscription) => post("/push/subscribe", sub.toJSON());

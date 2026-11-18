@@ -371,3 +371,74 @@ def test_the_push_contact_comes_from_the_app_host():
     assert app.vapid_subject({"APP_HOST": "box.tail1.ts.net"}) == "https://box.tail1.ts.net"
     assert app.vapid_subject({"APP_HOST": "home-cameras.invalid"}) == app.DEFAULT_VAPID_SUBJECT
     assert app.vapid_subject({}) == app.DEFAULT_VAPID_SUBJECT
+
+
+# --- names and groups ---------------------------------------------------------------------
+
+NAMES_BODY = (b'{"rev": 0, "cameras": {"front_yard": {"name": "Front Door", "group": "g1"}, '
+              b'"kitchen_cam": {"group": "g2"}, "porch": {"name": "Emma\'s room"}}, '
+              b'"groups": [{"id": "g1", "name": "Outside"}, {"id": "g2", "name": "Inside"}]}')
+
+
+def names_services(tmp_path):
+    import app
+    import names
+
+    return app.Services(pusher=None, names=names.Names(str(tmp_path / "names.json")))
+
+
+def test_get_names_with_no_file_is_the_empty_document(tmp_path):
+    status, headers, body = call(names_services(tmp_path), "GET", "/names")
+    assert status == 200 and json.loads(body) == {"rev": 0, "cameras": {}, "groups": []}
+    assert headers["Content-Type"] == "application/json"
+
+
+def test_post_names_stores_the_document_with_the_next_rev(tmp_path):
+    svc = names_services(tmp_path)
+    status, _, body = call(svc, "POST", "/names", NAMES_BODY)
+    want = dict(json.loads(NAMES_BODY), rev=1)
+    assert status == 200 and json.loads(body) == want
+    assert json.loads(call(svc, "GET", "/names")[2]) == want
+
+
+def test_post_names_with_a_stale_rev_is_409_with_the_stored_document(tmp_path):
+    svc = names_services(tmp_path)
+    call(svc, "POST", "/names", NAMES_BODY)
+    status, _, body = call(svc, "POST", "/names", NAMES_BODY)
+    assert status == 409
+    assert json.loads(body) == {"error": "The names changed on another device.",
+                                "names": dict(json.loads(NAMES_BODY), rev=1)}
+
+
+@pytest.mark.parametrize("body", [b"{not json", b"[]", b"",
+                                  b'{"rev": 0, "cameras": {"porch": {"name": "<b>"}}, "groups": []}',
+                                  b'{"rev": 0, "cameras": {"porch": {"group": "g9"}}, "groups": []}'])
+def test_post_names_with_a_bad_body_is_400(tmp_path, body):
+    svc = names_services(tmp_path)
+    status, _, out = call(svc, "POST", "/names", body)
+    assert status == 400 and json.loads(out)["error"]
+    assert json.loads(call(svc, "GET", "/names")[2])["rev"] == 0
+
+
+@pytest.mark.parametrize("method", ["PUT", "DELETE", "PATCH"])
+def test_names_accepts_only_get_and_post(tmp_path, method):
+    assert call(names_services(tmp_path), method, "/names", NAMES_BODY)[0] == 405
+
+
+def test_real_services_without_a_names_store_answer_the_empty_document():
+    import app
+
+    assert app.Services(pusher=None).names() == {"rev": 0, "cameras": {}, "groups": []}
+
+
+def test_alert_loop_uses_the_users_camera_name(tmp_path):
+    from app import AlertLoop
+
+    now = 1_800_000_000.0
+    smoke = {"id": "s1", "label": "smoke_detector", "camera": "porch",
+             "start_time": now - 3, "end_time": None}
+    pusher = FakePusher()
+    loop = AlertLoop(FakeFrigate([smoke]), pusher, str(tmp_path / "alerts.json"), [],
+                     clock=lambda: now, title_of={"porch": "Emma's room"}.get)
+    loop.step()
+    assert pusher.sent[0]["body"] == "A smoke alarm is sounding in Emma's room."

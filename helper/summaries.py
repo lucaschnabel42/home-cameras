@@ -18,6 +18,8 @@ What this does not do:
   between the frames is missed and the model may describe the wrong moment.
 - It does not check the model's words. The prompt asks it to call the pet
   by its name and not to guess names; the model can still get either wrong.
+- A stored summary keeps the words it was written with. A new camera name
+  changes only the summaries written after it.
 - It cannot see whether another program is about to use the GPU. A game
   started during a summary shares the GPU for up to about a minute.
 - An Ollama outage is not a bad answer; the item waits for Ollama.
@@ -35,7 +37,8 @@ import threading
 import urllib.request
 
 import jsonstore
-from alerts import camera_name
+import names
+from names import camera_name
 
 MODEL = "qwen2.5vl:7b"
 # Free means: what other programs hold (all memory in use, less the summary model
@@ -122,8 +125,9 @@ def _words(pet):
     return objects, sounds
 
 
-def build_prompt(review, frames, pet=None):
-    """The user message for one review item. pet is a pet.Pet, or None."""
+def build_prompt(review, frames, pet=None, title_of=camera_name):
+    """The user message for one review item. pet is a pet.Pet, or None.
+    title_of gives the title of the camera (names.Names.title)."""
     data = review.get("data") or {}
     object_words, sound_words = _words(pet)
     seen = [object_words.get(o, o) for o in data.get("objects", [])]
@@ -131,7 +135,7 @@ def build_prompt(review, frames, pet=None):
     length = round((review["end_time"] or review["start_time"]) - review["start_time"])
     lines = [
         f"These are {frames} frames, in time order, from the home camera "
-        f"\"{camera_name(review['camera'])}\". They cover {length} seconds.",
+        f"\"{title_of(review['camera']) or camera_name(review['camera'])}\". They cover {length} seconds.",
         "The camera detected: " + (", ".join(seen) or "nothing named") + ".",
     ]
     if heard:
@@ -167,6 +171,14 @@ def _clip(text, limit):
 def name_words(pet):
     """The words of the pet's name, which keep their capital in a title."""
     return frozenset(pet.name.replace("-", " ").split()) if pet else frozenset()
+
+
+def title_words(camera, title):
+    """The words of a user's camera name that keep their capital in a summary
+    title (names.proper_words). The derived name adds none, as before."""
+    if not title or title == camera_name(camera):
+        return frozenset()
+    return names.proper_words(title)
 
 
 def sentence_case(title, keep=frozenset()):
@@ -214,10 +226,13 @@ def frame_times(start, end):
 
 class Summarizer:
     """Makes at most one summary per step(); app.py calls step() every 20 s.
-    pet is a pet.Pet, or None."""
+    pet is a pet.Pet, or None. title_of gives the title of a camera
+    (names.Names.title)."""
 
-    def __init__(self, frigate, chat, gpu_check, store_path, clock, pet=None):
+    def __init__(self, frigate, chat, gpu_check, store_path, clock, pet=None,
+                 title_of=camera_name):
         self.frigate = frigate
+        self.title_of = title_of
         self.pet = pet
         self.keep = name_words(pet)
         self.chat = chat
@@ -310,7 +325,8 @@ class Summarizer:
                 # num_predict: JSON mode can pad with whitespace without end.
                 "options": {"temperature": 0.2, "num_ctx": NUM_CTX, "num_predict": SUMMARY_MAX_TOKENS},
                 "messages": [{"role": "user",
-                              "content": build_prompt(review, len(images), self.pet),
+                              "content": build_prompt(review, len(images), self.pet,
+                                                       self.title_of),
                               "images": images}]}
         started = self.clock()
         try:
@@ -318,7 +334,8 @@ class Summarizer:
         except Exception as exc:
             log.warning("Ollama call failed: %s", type(exc).__name__)
             return
-        answer = parse_answer(content, self.keep)
+        camera = review["camera"]
+        answer = parse_answer(content, self.keep | title_words(camera, self.title_of(camera)))
         if answer is None:
             self._fail(review, now, "bad answer")
             return

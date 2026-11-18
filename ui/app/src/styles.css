@@ -812,6 +812,21 @@ button {
 
 /* Home header, filter chips, the activity list, the timeline ------------ */
 
+/* One date shows: the long form, or the short form on a narrow screen. */
+.date-short {
+  display: none;
+}
+@media (max-width: 480px) {
+  .date-long {
+    display: none;
+  }
+  .date-short {
+    display: inline;
+  }
+  .home-head .subtitle {
+    white-space: nowrap;
+  }
+}
 .home-head {
   display: flex;
   align-items: flex-start;
@@ -1769,5 +1784,224 @@ button {
     right: max(12px, env(safe-area-inset-right));
     bottom: calc(env(safe-area-inset-bottom) + 8px);
     width: 320px;
+  }
+}
+
+/* Home: the view chips, and the cameras by group (components/GroupBoard.tsx) */
+.chips.home-view {
+  margin: 0 0 14px;
+}
+/* Sections sit next to each other when the width allows it. A section with
+   more cameras (--n) grows more and starts wider. A section alone on its
+   line does not grow past the width its cameras need. */
+.group-board {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 20px 24px;
+}
+.group-section {
+  flex: var(--n) 1 calc(var(--n) * 150px);
+  max-width: calc(var(--n) * 250px);
+  min-width: 0;
+}
+@media (max-width: 699px) {
+  .group-section {
+    flex-basis: 100%;
+    max-width: none;
+  }
+}
+.group-head {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.group-head button,
+.group-static {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  min-height: 44px;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+.group-head button {
+  cursor: pointer;
+  border-radius: 999px;
+}
+.group-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.group-count {
+  flex: none;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 400;
+}
+.group-head svg {
+  flex: none;
+  color: var(--muted);
+}
+
+/* Names and groups (components/NamesSheet.tsx) */
+/* The status stays in view while the list scrolls: a 409 notice must not
+   appear above the fold where the user cannot see it. */
+.names-status {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0 -6px 6px;
+  padding: 4px 12px 10px;
+  background: var(--bg);
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.names-status.warn {
+  color: var(--text);
+}
+.names-status svg {
+  flex: none;
+  margin-top: 1px;
+}
+.names-head {
+  margin: 22px 6px 10px;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.names-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.names-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 18px;
+  background: var(--tile);
+}
+.names-row.group {
+  align-items: center;
+  gap: 2px;
+  padding: 6px 4px 6px 10px;
+}
+.names-row.group .names-field {
+  flex: 1;
+  margin-right: 6px;
+}
+.names-row .round {
+  border: 0;
+  background: none;
+  color: var(--text);
+}
+.names-row .round:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.names-still {
+  flex: none;
+  width: 72px;
+  aspect-ratio: 16 / 9;
+  margin-top: 22px;
+  border-radius: 14px;
+  object-fit: cover;
+  background: var(--line);
+}
+.names-fields {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+.names-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.names-label {
+  padding: 0 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.names-label.hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.names-input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px; /* 16 px or more: iOS does not zoom into the field */
+}
+.names-input::placeholder {
+  color: var(--muted);
+}
+.names-input:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.names-input[aria-invalid="true"] {
+  border-color: var(--text);
+}
+.names-select {
+  appearance: auto;
+  padding: 0 12px 0 14px;
+  font-weight: 400;
+  cursor: pointer;
+}
+/* A wide sheet: the name and the group on one line, the select under no label. */
+@media (min-width: 560px) {
+  .names-fields.two {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    align-items: start;
+  }
+  .names-fields .names-select {
+    margin-top: 23px; /* the height of the label above the name field */
+  }
+}
+.names-problem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px;
+  font-size: 13px;
+  color: var(--text);
+}
+.names-problem svg {
+  flex: none;
+}
+.names-empty {
+  margin: 0 6px 10px;
+}
+@media (min-width: 1024px) {
+  .overlay.panel.names {
+    height: min(90vh, 820px);
   }
 }

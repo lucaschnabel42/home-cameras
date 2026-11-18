@@ -9,6 +9,10 @@ Routes:
 - GET /push/key; POST /push/subscribe, /push/unsubscribe, /push/test.
 - GET /summaries?after=<unix seconds>: {review id: {"title", "summary"}}.
 - GET /cameras: the last-live time of each camera (cameras.py).
+- GET /names: the user's camera names and groups (names.py). POST /names
+  with a whole document and the rev it read: 200 and the stored document,
+  409 with the stored document when another device wrote first, 400 when the
+  document breaks the name rule.
 - GET /pet/days, /pet/<date>.json (the day with its story), and
   /pet/<date>/<rest or unix seconds>.jpg: the pet day (pet_day.py,
   story.py). With no pet in the settings, /pet/days is an empty list.
@@ -26,6 +30,7 @@ What this does not do:
 - It accepts only GET and POST, and a body of at most BODY_MAX bytes.
 """
 
+import copy
 import json
 import logging
 import os
@@ -39,6 +44,7 @@ import alerts
 import cameras
 import frigate
 import jsonstore
+import names
 import pet
 import pet_day
 import push
@@ -81,17 +87,21 @@ def route(svc, method, target, body):
     """Answer one request. Returns (status, headers, body bytes).
 
     svc provides config, public_key, subscribe, unsubscribe, test_push,
-    summaries, cameras, pet_days, pet_day and pet_image. A ValueError from svc
-    or from parsing is a 400. Pet paths must match PET_DAY or PET_IMAGE whole;
+    summaries, cameras, names, save_names, pet_days, pet_day and pet_image. A
+    ValueError from svc or from parsing is a 400; a names.Conflict is a 409. Pet paths must match PET_DAY or PET_IMAGE whole;
     a percent-encoded path is not decoded, so it never matches.
     """
     parts = urllib.parse.urlsplit(target)
     path, query = parts.path, urllib.parse.parse_qs(parts.query)
     get_routes = {"/healthz", "/config", "/push/key", "/summaries", "/cameras", "/pet/days"}
     post_routes = {"/push/subscribe", "/push/unsubscribe", "/push/test"}
+    get_post_routes = {"/names"}
     is_pet_file = path.startswith("/pet/") and path != "/pet/days"
 
-    if path in get_routes or is_pet_file:
+    if path in get_post_routes:
+        if method not in ("GET", "POST"):
+            return _error(405, "GET or POST only")
+    elif path in get_routes or is_pet_file:
         if method != "GET":
             return _error(405, "GET only")
     elif path in post_routes:
@@ -125,6 +135,13 @@ def route(svc, method, target, body):
             return _json(200, svc.summaries(after))
         if path == "/cameras":
             return _json(200, {"cameras": svc.cameras()})
+        if path == "/names" and method == "GET":
+            return _json(200, svc.names())
+        if path == "/names":
+            try:
+                return _json(200, svc.save_names(json.loads(body or b"null")))
+            except names.Conflict as conflict:
+                return _json(409, {"error": names.CONFLICT, "names": conflict.stored})
         if path == "/pet/days":
             return _json(200, svc.pet_days())
         day = PET_DAY.match(path)
@@ -215,8 +232,10 @@ class AlertLoop:
     loses a push rather than sending it twice.
     """
 
-    def __init__(self, frigate, pusher, state_path, indoor, clock=time.time, pet=None):
+    def __init__(self, frigate, pusher, state_path, indoor, clock=time.time, pet=None,
+                 title_of=alerts.camera_name):
         self.frigate = frigate
+        self.title_of = title_of
         self.pusher = pusher
         self.path = state_path
         self.indoor = list(indoor)
@@ -232,7 +251,7 @@ class AlertLoop:
         # A person on the couch for hours started before the lookback.
         events.update({e["id"]: e for e in self.frigate.events(in_progress=True)})
         pushes, self.state = alerts.decide(list(events.values()), now, self.state, self.indoor,
-                                           self.pet)
+                                           self.pet, self.title_of)
         jsonstore.save(self.path, self.state)
         if not pushes:
             return
@@ -248,15 +267,17 @@ class AlertLoop:
 
 class Services:
     """The real services behind the routes. client_config is the body of
-    GET /config (pet.client_config)."""
+    GET /config (pet.client_config). names is a names.Names store; without
+    one, GET /names is the empty document and POST /names is refused."""
 
     def __init__(self, pusher, summarizer=None, pet_days=None, stories=None, last_live=None,
-                 client_config=None):
+                 client_config=None, names=None):
         self.pusher = pusher
         self.summarizer = summarizer
         self.pet_days_maker = pet_days
         self.stories = stories
         self.last_live = last_live
+        self.names_store = names
         self.client_config = client_config or pet.client_config(None, False)
 
     def config(self):
@@ -281,6 +302,14 @@ class Services:
 
     def cameras(self):
         return self.last_live.cameras() if self.last_live else {}
+
+    def names(self):
+        return self.names_store.doc() if self.names_store else copy.deepcopy(names.EMPTY)
+
+    def save_names(self, doc):
+        if self.names_store is None:
+            raise ValueError("This helper keeps no names.")
+        return self.names_store.replace(doc)
 
     def _story(self, date):
         return self.stories.story(date) if self.stories else None
@@ -361,6 +390,7 @@ def main():
     pusher = push.Pusher(keys, vapid_subject(os.environ), subs)
     frig = frigate.Frigate(os.environ.get("FRIGATE_URL", "http://frigate:5000"))
     the_pet = pet.from_env(os.environ)
+    names_store = names.Names(os.path.join(data, "names.json"))
     ollama = os.environ.get("OLLAMA_URL", "").strip()
     # With no Ollama the model is never asked: the summaries loop does not
     # run, and the story of each day is the code-written template.
@@ -369,19 +399,22 @@ def main():
         else (lambda: False)
     summarizer = summaries.Summarizer(
         frig, summaries.ollama_chat(ollama), model_free,
-        os.path.join(data, "summaries.json"), clock=time.time, pet=the_pet)
+        os.path.join(data, "summaries.json"), clock=time.time, pet=the_pet,
+        title_of=names_store.title)
     pet_days = stories = None
     if the_pet:
         pet_days = pet_day.PetDay(frig, move_old_pet_state(data, the_pet), the_pet,
                                   clock=time.time, summaries=summarizer.summaries)
         stories = story.StoryWriter(
             frig, pet_days, summarizer, summaries.ollama_chat(ollama, timeout=600), model_free,
-            os.path.join(data, "stories.json"), the_pet, clock=time.time)
+            os.path.join(data, "stories.json"), the_pet, clock=time.time,
+            title_of=names_store.title)
     last_live = cameras.LastLive(frig, os.path.join(data, "cameras.json"), clock=time.time)
     svc = Services(pusher, summarizer, pet_days, stories, last_live,
-                   pet.client_config(the_pet, has_model))
+                   pet.client_config(the_pet, has_model), names_store)
     indoor = [c.strip() for c in os.environ.get("INDOOR_CAMERAS", "").split(",") if c.strip()]
-    alert_loop = AlertLoop(frig, pusher, os.path.join(data, "alerts.json"), indoor, pet=the_pet)
+    alert_loop = AlertLoop(frig, pusher, os.path.join(data, "alerts.json"), indoor, pet=the_pet,
+                           title_of=names_store.title)
     start_loop("alerts", alert_loop.step, ALERT_EVERY_S)
     if has_model:
         start_loop("summaries", summarizer.step, summaries.MIN_GAP_S)

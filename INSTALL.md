@@ -255,6 +255,8 @@ For each line that starts with `FIX`, find its text in `docs/TROUBLESHOOTING.md`
 
 Check: you see your cameras with live pictures. Wyze cameras can take about a minute to show a picture.
 
+To give a camera another name, select the tag button at the top of the app ("Names and groups"). There you can also make groups of cameras. The app saves each change at once, and every device shows it. A name does not change the camera name in Frigate or in the Wyze app.
+
 If the page is blank or says "Misdirected request", the address has a name instead of `127.0.0.1`. Use exactly `http://127.0.0.1:5010`.
 
 Frigate's own pages (settings, all recordings) are at http://127.0.0.1:5011 on this computer (`ADMIN_PORT`). They need no login there. Frigate's login port (`FRIGATE_HTTPS_PORT`, 8971) listens on this computer only (`FRIGATE_BIND_ADDRESS=127.0.0.1`), so other devices at home cannot reach it.

@@ -328,3 +328,41 @@ def test_an_item_waiting_for_its_retry_is_backlog_and_a_given_up_one_is_not(tmp_
     t["now"] += 60
     s.step()
     assert s.backlog() == 0  # given up after two tries
+
+
+# --- the user's camera names ---------------------------------------------------------------
+
+def test_the_prompt_holds_the_users_camera_name():
+    r = review("a", NOW, NOW + 95)
+    text = build_prompt(r, frames=3, pet=PET, title_of={"living_room_cam": "Emma's room"}.get)
+    assert 'home camera "Emma\'s room"' in text and "Living room" not in text
+
+
+def test_the_prompt_with_the_default_holds_the_derived_name():
+    text = build_prompt(review("a", NOW, NOW + 95), frames=3, pet=PET)
+    assert 'home camera "Living room"' in text
+
+
+def test_sentence_case_keeps_the_proper_words_of_the_camera_title():
+    from names import proper_words
+
+    keep = proper_words("Emma's TV room")
+    assert summaries.sentence_case("Rex Naps In Emma's TV Room", keep) == \
+        "Rex naps in Emma's TV room"
+
+
+def test_the_summarizer_asks_and_keeps_with_the_users_camera_name(tmp_path):
+    title = json.dumps({"title": "Rex Sleeps In Emma's Room", "summary": "He sleeps."})
+    frig, chat = FakeFrigate([review("a", NOW - 1000, NOW - 900)]), FakeChat([title])
+    s = Summarizer(frig, chat, lambda: True, str(tmp_path / "summaries.json"),
+                   clock=lambda: NOW, pet=PET, title_of={"living_room_cam": "Emma's room"}.get)
+    s.step()
+    assert '"Emma\'s room"' in chat.bodies[0]["messages"][0]["content"]
+    assert s.summaries(0)["a"]["title"] == "Rex sleeps in Emma's room"
+
+
+def test_the_summarizer_with_the_default_lowers_the_same_word(tmp_path):
+    title = json.dumps({"title": "Rex Sleeps In Emma's Room", "summary": "He sleeps."})
+    s, _, _, _ = make(tmp_path, [review("a", NOW - 1000, NOW - 900)], [title])
+    s.step()
+    assert s.summaries(0)["a"]["title"] == "Rex sleeps in emma's room"

@@ -48,6 +48,14 @@ The screenshots show demo cameras made from public-domain photos. They do not sh
   </tr>
 </table>
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/desktop-groups-dark.webp">
+    <img src="docs/images/desktop-groups.webp" width="720" alt="Home on a desktop with the view By group. The group Outside shows the front yard, the porch, and the offline garage. The group Inside shows the living area, the kitchen, and the guest room, next to the first group. A row of chips above them chooses all cameras, the groups, or one group.">
+  </picture>
+  <br><sub>Groups: give the cameras your own names, and see the groups next to each other.</sub>
+</p>
+
 <table>
   <tr>
     <td valign="top">
@@ -89,6 +97,7 @@ The app runs in a browser, on a phone and on a desktop. On an iPhone, add it to 
 | Feature | What it does |
 |---------|--------------|
 | Home | Each camera plays live. With many cameras the app shows a grid, and only some tiles play video at one time. The others show a still that refreshes. A camera that is offline shows since when. |
+| Names and groups | Give each camera your own name, and put cameras into groups such as "Outside" and "Inside". Home can show all cameras, one group, or all groups next to each other. Security mode can show one group. The names and groups are the same on every device; each device keeps its own view. |
 | Activity | One list of what the cameras saw: people, animals, vehicles, and sounds. Events that are close together fold into one row. Tap a row to play its clip. |
 | Camera view | Live video with pinch to zoom, a dial to go back in the recording, and a button to save the last minutes as a clip. |
 | Security mode | A wall of all cameras with no other content. A camera gets a mark while the recorder sees a person, an animal, or a vehicle there. A spotlight layout shows one camera large. "Follow activity" moves the spotlight to the camera with the newest detection. The screen stays on. You can hide a camera, change the order, and save a still. |

@@ -13,6 +13,11 @@ export function longDate(d: Date): string {
   return d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 }
 
+/** "Wed, Oct 14": the date where the long form does not fit on one line. */
+export function shortDate(d: Date): string {
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+}
+
 /**
  * The part of day an event belongs to, relative to now.
  * Night runs 22:00 to 05:00, so 23:30 yesterday and 00:30 today are both

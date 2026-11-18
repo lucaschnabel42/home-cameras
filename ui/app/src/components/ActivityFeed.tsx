@@ -3,10 +3,10 @@ import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "reac
 import { clockUnder, gapRowStart, groupSessions, sections, span, type BlindSpot, type Row, type Session } from "../lib/activity";
 import type { ClipWindow, EventEntry, SavedEntry } from "../lib/feed";
 import { clockTime, shortDay, timeRange } from "../lib/format";
-import { cameraTitle } from "../lib/frigate";
+import { useTitleOf } from "../hooks/useNames";
 import type { Summary } from "../lib/helper";
 import { usePet } from "../hooks/useAppConfig";
-import { caption, kindName, kinds, KINDS, subject, type Kind } from "../lib/labels";
+import { caption, kindName, kinds, KINDS, lowerTitle, subject, type Kind } from "../lib/labels";
 import { eventCount, filterEntries, rowLength, visitRows, type VisitRow } from "../lib/visits";
 import { OrbField } from "./OrbField";
 
@@ -96,7 +96,7 @@ function EventRow({
  * A row with joined events ends "and 1 more moment". headerS is a time on the
  * day of the header the row sits under.
  */
-function eventLine(r: VisitRow, now: Date, headerS: number): { text: string; accent: boolean } {
+function eventLine(r: VisitRow, now: Date, headerS: number, cameraTitle: (camera: string) => string): { text: string; accent: boolean } {
   const nowS = now.getTime() / 1000;
   const where = `${cameraTitle(r.entry.camera)}, ${clockUnder(r.start, headerS, now)}`;
   const more = r.more ? ` · and ${r.more} more moment${r.more === 1 ? "" : "s"}` : "";
@@ -138,6 +138,7 @@ export function ActivityFeed({
   onOpenCamera: (camera: string) => void;
 }) {
   const pet = usePet();
+  const cameraTitle = useTitleOf();
   const [chosen, setFilter] = useState<Filter>("all");
   // A chip shows only for a kind that the list holds: a home with no vehicle
   // camera gets no Vehicles chip. A chosen kind that left the list falls back to All.
@@ -183,7 +184,7 @@ export function ActivityFeed({
   };
 
   const eventRow = (r: VisitRow, sub = false, headerS = r.start) => {
-    const line = eventLine(r, now, headerS);
+    const line = eventLine(r, now, headerS, cameraTitle);
     return (
       <EventRow
         key={r.key}
@@ -302,7 +303,7 @@ export function ActivityFeed({
         <>
           <h2 className="section">Saved</h2>
           {saved.map((s) => {
-            const title = `${s.title}, ${cameraTitle(s.camera).toLowerCase()}`;
+            const title = `${s.title}, ${lowerTitle(cameraTitle(s.camera))}`;
             const when = s.end ?? s.date;
             const ready = s.state === "ready" && !!s.clipUrl;
             return (

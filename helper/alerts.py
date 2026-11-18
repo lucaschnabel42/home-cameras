@@ -11,6 +11,8 @@ Rules:
   kind. The labels glass and breaking are not used: they also mean dishes.
 - Each event pushes at most once.
 - The words name the pet of the settings (pet.py) when there is one.
+- The words name each camera by its title: the user's name (names.py), else
+  the name derived from the Frigate key.
 
 What this does not do:
 - Overlapping bark and howl events count once (their union), but nothing
@@ -24,6 +26,8 @@ What this does not do:
 
 import copy
 import re
+
+import names
 
 BARK_LABELS = {"bark", "howl"}
 SOUND_KINDS = {"smoke_detector": "smoke", "fire_alarm": "smoke", "shatter": "glass"}
@@ -43,19 +47,16 @@ AUDIO_TAIL_S = 30
 DONE_KEEP_S = 7200
 
 
-def camera_name(camera):
-    """living_room_cam -> "Living room"."""
-    name = camera[:-4] if camera.endswith("_cam") else camera
-    return name.replace("_", " ").strip().capitalize()
+camera_name = names.camera_name
 
 
-_OUTDOOR = re.compile(r"porch|door|yard|drive|garage|gate|patio|deck|garden|street")
+def place(camera, title_of=camera_name):
+    """living_room_cam -> "in the living room"; front_porch_cam -> "at the front porch".
 
-
-def place(camera):
-    """living_room_cam -> "in the living room"; front_porch_cam -> "at the front porch"."""
-    name = camera_name(camera).lower()
-    return f"{'at' if _OUTDOOR.search(name) else 'in'} the {name}"
+    title_of gives the title of a camera (names.Names.title). The title
+    takes the place phrase of names.py, the same rule as in the app.
+    """
+    return names.place_phrase(title_of(camera) or camera_name(camera))
 
 
 def _heard(event, now):
@@ -106,11 +107,14 @@ def _cooled(state, key, now, cooldown):
     return last is None or now - last >= cooldown
 
 
-def decide(events, now, state, indoor_cameras, pet=None):
+def decide(events, now, state, indoor_cameras, pet=None, title_of=camera_name):
     """Return (pushes, new_state). Does not change its inputs.
 
     pet: the pet.Pet of the settings, or None. A dog pet gives its name to the
     bark alert, and any pet to the smoke and glass alerts.
+
+    title_of: camera -> its title (names.Names.title). The default is the
+    name derived from the key.
 
     events: Frigate events with id, label, camera, start_time, end_time.
     state: the dict this function returned last time ({} at first start).
@@ -132,7 +136,7 @@ def decide(events, now, state, indoor_cameras, pet=None):
         if not _cooled(state, key, now, SOUND_COOLDOWN_S):
             continue
         state["cooldown"][key] = now
-        where = place(e["camera"])
+        where = place(e["camera"], title_of)
         check = f" Check on {pet.name}." if pet else ""
         if kind == "smoke":
             title, body = "Smoke alarm", f"A smoke alarm is sounding {where}.{check}"
@@ -171,7 +175,7 @@ def decide(events, now, state, indoor_cameras, pet=None):
                 "kind": "bark", "camera": camera, "event_id": latest["id"],
                 "time": latest["start_time"], "title": title,
                 "body": f"{who} has barked for about {minutes} of the last 10 min "
-                        f"{place(camera)}. Nobody was seen inside."})
+                        f"{place(camera, title_of)}. Nobody was seen inside."})
     return pushes, state
 
 

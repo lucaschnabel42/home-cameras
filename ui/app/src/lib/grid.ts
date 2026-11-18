@@ -23,6 +23,19 @@ export function homeColumns(count: number, width: number): number {
   return Math.max(1, Math.min(fit, Math.ceil(Math.sqrt(count))));
 }
 
+/**
+ * Columns for the tiles of one group section of the home screen. Two cameras
+ * sit side by side when two tiles fit, also on a phone: a section with two
+ * cameras then has tiles of the same size as a section with three. The
+ * full-width tiles of homeColumns are for a home screen with no sections.
+ */
+export function sectionColumns(count: number, width: number): number {
+  if (count <= 1) return 1;
+  const fit = Math.max(1, Math.floor((width + HOME_GAP) / (HOME_MIN_TILE + HOME_GAP)));
+  if (count <= 4) return Math.min(2, fit);
+  return Math.max(1, Math.min(fit, Math.ceil(Math.sqrt(count))));
+}
+
 /** The padding of an element, in CSS pixels. */
 export interface Padding {
   top: number;

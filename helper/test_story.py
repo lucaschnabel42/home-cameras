@@ -609,3 +609,70 @@ def test_the_checker_uses_the_pronouns_and_animal_of_the_pet():
 
 def test_clean_note_names_a_cat():
     assert st.clean_note("The grey cat sits by the window.", MISO) == "Miso sits by the window."
+
+
+# --- the user's camera name ------------------------------------------------------------------
+
+def test_the_prompt_names_the_room_by_the_users_camera_name():
+    assert "the TV room camera saw" in st.system_prompt(PET, "TV room")
+    assert "the front door camera saw" in st.system_prompt(PET, "Front Door")
+    assert "the Emma's room camera saw" in st.system_prompt(PET, "Emma's room")
+
+
+def test_the_prompt_with_the_derived_name_is_as_before():
+    assert st.system_prompt(PET) == st.system_prompt(PET, "Living room")
+    assert "the living room camera saw" in st.system_prompt(PET)
+
+
+def test_the_writer_puts_the_users_camera_name_in_the_prompt(tmp_path):
+    reviews = [review("a", at(9, 0))]
+    sums = {"a": s("Rex naps on the couch", "Rex is curled up on the couch.")}
+    chat = FakeChat([json.dumps({"title": "A sleepy day",
+                                 "chapters": [{"episodes": ["e1"], "text": "Rex napped."}]})])
+    w = st.StoryWriter(FakeFrigate(reviews, ()), FakePetDay(()), FakeSummarizer(sums, 0), chat,
+                       lambda: True, str(tmp_path / "stories.json"), PET,
+                       clock=lambda: at(20, 30), title_of={"living_room_cam": "TV room"}.get)
+    w.write(DATE, final=False, use_model=True)
+    assert "the TV room camera saw" in chat.bodies[0]["messages"][0]["content"]
+
+
+def capital_errors(answer, title=None):
+    return [e for e in st.check(answer, day(), [], PET, title) if "use capitals only" in e]
+
+
+@pytest.mark.parametrize("title, text", [
+    ("TV room", "In the morning Rex curled up on the couch in the TV room."),
+    ("Emma's room", "In the morning Rex curled up on the couch in Emma's room."),
+    ("Emma’s room", "In the morning Rex curled up on the couch in Emma’s room."),
+])
+def test_the_capitals_of_the_users_camera_title_pass_the_capital_rule(title, text):
+    answer = with_text(0, text)
+    assert capital_errors(answer, title) == []
+    assert capital_errors(answer)
+
+
+def test_the_derived_title_allows_no_new_capital():
+    answer = with_text(0, "In the morning Rex curled up on the couch in the Living room.")
+    assert capital_errors(answer, "Living room")
+
+
+def test_a_story_title_keeps_the_capitals_of_the_users_camera_title():
+    assert st.title_sentence("Rex Naps In Emma's Room", PET, "Emma's room") == \
+        "Rex naps in Emma's room"
+    assert st.title_sentence("Rex Naps In Emma's Room", PET) == "Rex naps in emma's room"
+    answer = st.parse_answer(json.dumps(dict(GOOD, title="Rex Naps In Emma's Room")), PET,
+                             "Emma's room")
+    assert answer["title"] == "Rex naps in Emma's room"
+
+
+def test_the_writer_checks_with_the_users_camera_title(tmp_path):
+    reviews = [review("a", at(9, 0))]
+    sums = {"a": s("Rex naps on the couch", "Rex is curled up on the couch.")}
+    good = json.dumps({"title": "A nap in Emma's room",
+                       "chapters": [{"episodes": ["e1"], "text": "Rex napped in Emma's room."}]})
+    chat = FakeChat([good, good])
+    w = st.StoryWriter(FakeFrigate(reviews, ()), FakePetDay(()), FakeSummarizer(sums, 0), chat,
+                       lambda: True, str(tmp_path / "stories.json"), PET,
+                       clock=lambda: at(20, 30), title_of={"living_room_cam": "Emma's room"}.get)
+    w.write(DATE, final=False, use_model=True)
+    assert len(chat.bodies) == 1 and w.meta(DATE)["how"] == "first"

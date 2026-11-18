@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contentSize, homeColumns, isTall, wallLayout } from "./grid";
+import { contentSize, homeColumns, isTall, sectionColumns, wallLayout } from "./grid";
 
 describe("homeColumns", () => {
   it("keeps one column for one or two cameras on a phone", () => {
@@ -23,6 +23,21 @@ describe("homeColumns", () => {
     expect(homeColumns(9, 358)).toBe(2);
     expect(homeColumns(16, 358)).toBe(2);
     expect(homeColumns(16, 120)).toBe(1);
+  });
+});
+
+describe("sectionColumns", () => {
+  it("puts two cameras side by side, also in a narrow section", () => {
+    expect(sectionColumns(2, 358)).toBe(2);
+    expect(sectionColumns(2, 375)).toBe(2);
+    // homeColumns stacks two cameras there: a home screen with no sections.
+    expect(homeColumns(2, 375)).toBe(1);
+  });
+  it("gives the columns of the home grid for other counts", () => {
+    expect(sectionColumns(1, 375)).toBe(1);
+    expect(sectionColumns(3, 358)).toBe(2);
+    expect(sectionColumns(9, 950)).toBe(3);
+    expect(sectionColumns(2, 120)).toBe(1);
   });
 });
 

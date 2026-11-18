@@ -1,7 +1,7 @@
 import { usePet } from "../../hooks/useAppConfig";
 import { mediaUrl, reviewLabels, type ReviewItem } from "../../lib/feed";
 import { clockTime } from "../../lib/format";
-import { cameraTitle } from "../../lib/frigate";
+import { useTitleOf } from "../../hooks/useNames";
 import { subject } from "../../lib/labels";
 
 /**
@@ -20,6 +20,7 @@ export function EventStrip({
   onPick: (r: ReviewItem) => void;
 }) {
   const pet = usePet();
+  const cameraTitle = useTitleOf();
   return (
     <section className="event-strip" aria-label="Newest events">
       {offline.length > 0 && <p className="wall-offline">Offline: {offline.join(", ")}</p>}

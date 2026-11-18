@@ -210,6 +210,41 @@ def test_place():
     assert place("front_porch_cam") == "at the front porch"
 
 
+def test_place_with_the_users_name():
+    title_of = {"living_room_cam": "Emma's room", "front_porch_cam": "Front Door"}.get
+    assert place("living_room_cam", title_of) == "in Emma's room"
+    assert place("front_porch_cam", title_of) == "at the front door"
+
+
+def test_the_derived_name_keeps_the_old_phrase():
+    # The old rule set the whole derived name in lower case.
+    assert place("cam1") == "in the cam1"
+    assert place("the_den") == "in the den"
+    assert place("back-yard") == "at the back-yard"
+    assert place("a1") == "in the A1"
+    assert place("cam1", camera_name) == "in the cam1"
+
+
+def test_a_bark_push_says_the_users_camera_name():
+    title_of = {CAM: "Emma's room"}.get
+    pushes, _ = decide([bark(121, end_ago=AUDIO_TAIL_S)], NOW, {}, INDOOR, PET, title_of)
+    assert pushes[0]["body"] == ("He has barked for about 2 of the last 10 min in Emma's room. "
+                                 "Nobody was seen inside.")
+
+
+def test_a_bark_push_with_the_default_is_as_before():
+    pushes, _ = run([bark(121, end_ago=AUDIO_TAIL_S)])
+    assert pushes[0]["body"] == ("He has barked for about 2 of the last 10 min in the living "
+                                 "room. Nobody was seen inside.")
+
+
+def test_a_smoke_push_says_the_users_camera_name():
+    title_of = {CAM: "TV room"}.get
+    pushes, _ = decide([ev("s1", "smoke_detector", NOW - 10, None)], NOW, {}, INDOOR, PET,
+                       title_of)
+    assert pushes[0]["body"] == "A smoke alarm is sounding in the TV room. Check on Rex."
+
+
 def test_camera_name():
     assert camera_name("living_room_cam") == "Living room"
     assert camera_name("front_porch_cam") == "Front porch"

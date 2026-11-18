@@ -80,10 +80,33 @@ export function subject(labels: string[], pet: Pet | null = null): string {
   return what.charAt(0).toUpperCase() + what.slice(1);
 }
 
-/** "in the living room", "at the front porch". */
+const POSSESSIVE = /['’]s$/;
+/** A capital letter first, then no other capital and one or more lower-case letters: "Door", "Cam1", "Back-yard"; not "TV", "A" or "A1". */
+const PLAIN = /^\p{Lu}(?=[^\p{Lu}]*\p{Ll})[^\p{Lu}]*$/u;
+
+/**
+ * Rule 1 of the place phrase: a word with one capital, at its start, becomes
+ * lower case. A word such as "TV", "A" or "Emma's" stays as typed. helper/names.py has
+ * the same rule.
+ */
+export function lowerTitle(title: string): string {
+  return title
+    .split(" ")
+    .map((w) => (PLAIN.test(w) && !POSSESSIVE.test(w) ? w.toLowerCase() : w))
+    .join(" ");
+}
+
+/**
+ * "in the living room", "at the front door", "in Emma's room". The word
+ * "at" for an outdoor title, else "in"; then "the", unless a word is a
+ * possessive or the title starts with "the". Not modelled: a title that
+ * needs another preposition ("on the deck").
+ */
 export function placePhrase(cameraTitle: string): string {
-  const place = cameraTitle.toLowerCase();
-  return `${OUTDOOR.test(place) ? "at" : "in"} the ${place}`;
+  const words = cameraTitle.split(" ");
+  const lower = cameraTitle.toLowerCase();
+  const the = words.some((w) => POSSESSIVE.test(w)) || lower.startsWith("the ") ? "" : "the ";
+  return `${OUTDOOR.test(lower) ? "at" : "in"} ${the}${lowerTitle(cameraTitle)}`;
 }
 
 /** "Person and dog in the living room". */

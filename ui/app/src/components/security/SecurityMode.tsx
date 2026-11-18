@@ -8,7 +8,9 @@ import { usePoll } from "../../hooks/usePoll";
 import { useWakeLock } from "../../hooks/useWakeLock";
 import { activeDetections, followStep, mergeReviews, newestEvents, pickCamera, startFollow, type Follow } from "../../lib/detections";
 import type { EventEntry, ReviewItem } from "../../lib/feed";
-import { cameraTitle, getReviews, latestUrl, type CameraInfo } from "../../lib/frigate";
+import { getReviews, latestUrl, type CameraInfo } from "../../lib/frigate";
+import { useTitleOf } from "../../hooks/useNames";
+import type { NamesDoc } from "../../lib/names";
 import { focusReturn } from "../../lib/focusReturn";
 import { canFullscreenPage, enterPageFullscreen, leavePageFullscreen } from "../../lib/fullscreen";
 import { isTall, wallLayout } from "../../lib/grid";
@@ -63,6 +65,7 @@ type Layer = { kind: "clip"; clip: PlayRequest } | { kind: "camera"; name: strin
  */
 export function SecurityMode({
   cameras,
+  names,
   online,
   reviews,
   events,
@@ -72,6 +75,8 @@ export function SecurityMode({
   onClose,
 }: {
   cameras: CameraInfo[];
+  /** The groups, for the group choice of the wall (WallEditor). */
+  names: NamesDoc;
   online: Record<string, boolean> | undefined;
   /** The review items of the home feed (the last two days). */
   reviews: ReviewItem[];
@@ -83,6 +88,7 @@ export function SecurityMode({
   onClose: () => void;
 }) {
   const pet = usePet();
+  const cameraTitle = useTitleOf();
   const root = useRef<HTMLDivElement>(null);
   const exitButton = useRef<HTMLButtonElement>(null);
   const [prefs, setPrefsState] = useState<WallPrefs>(readWallPrefs);
@@ -135,9 +141,11 @@ export function SecurityMode({
 
   const byName = new Map(cameras.map((c) => [c.name, c]));
   const isOffline = (c: CameraInfo) => !c.liveOnly && online?.[c.name] === false;
+  const groupOf = (n: string) => names.cameras[n]?.group;
   const shown = wallNames(
     cameras.map((c) => c.name),
     prefs,
+    groupOf,
   ).map((n) => byName.get(n)!);
   const onWall = shown.filter((c) => !isOffline(c));
   const offlineTitles = shown.filter(isOffline).map((c) => c.title);
@@ -364,7 +372,7 @@ export function SecurityMode({
             onPlay={(clip) => setLayer({ kind: "clip", clip })}
           />
         )}
-        {layer?.kind === "edit" && <WallEditor key="edit" cameras={cameras} prefs={prefs} onChange={setPrefs} onClose={() => setLayer(null)} />}
+        {layer?.kind === "edit" && <WallEditor key="edit" cameras={cameras} names={names} prefs={prefs} onChange={setPrefs} onClose={() => setLayer(null)} />}
       </AnimatePresence>
     </motion.div>
   );

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Pet } from "./appConfig";
-import { caption, isUrgent, kindName, kinds, subject } from "./labels";
+import { caption, isUrgent, kindName, kinds, lowerTitle, placePhrase, subject } from "./labels";
 
 const rex: Pet = { name: "Rex", camera: "living_room_cam", label: "dog" };
 const mia: Pet = { name: "Mia", camera: "kitchen_cam", label: "cat" };
@@ -55,5 +55,39 @@ describe("kinds and urgency", () => {
     expect(isUrgent(["shatter"])).toBe(true);
     expect(isUrgent(["fire_alarm"])).toBe(true);
     expect(isUrgent(["bark", "person"])).toBe(false);
+  });
+});
+
+describe("placePhrase", () => {
+  // The table of the place phrase. helper/test_names.py has the same rows.
+  it.each([
+    ["Living room", "in the living room"],
+    ["Front porch", "at the front porch"],
+    ["Front Door", "at the front door"],
+    ["TV room", "in the TV room"],
+    ["Emma's room", "in Emma's room"],
+    ["The den", "in the den"],
+    ["Garage 2", "at the garage 2"],
+    // Names derived from a Frigate key read as they did before the names existed.
+    ["Cam1", "in the cam1"],
+    ["Back-yard", "at the back-yard"],
+    ["A1 hall", "in the A1 hall"],
+  ])("%s -> %s", (title, phrase) => {
+    expect(placePhrase(title)).toBe(phrase);
+  });
+  it("treats the curly apostrophe as the straight one", () => {
+    expect(placePhrase("Emma’s room")).toBe("in Emma’s room");
+  });
+  it("keeps a word of one capital letter", () => {
+    expect(placePhrase("Room A")).toBe("in the room A");
+  });
+  it("puts a user's name in a caption", () => {
+    expect(caption(["person"], "Front Door")).toBe("Person at the front door");
+  });
+});
+
+describe("lowerTitle", () => {
+  it("lowers the plain words and keeps the others", () => {
+    expect(lowerTitle("Emma's TV Room")).toBe("Emma's TV room");
   });
 });

@@ -29,3 +29,22 @@ export function pickLive(tiles: LiveCandidate[], cap: number, opts: { spotlight?
   for (const t of tiles) add(t.name);
   return out;
 }
+
+/**
+ * The live tiles of Home in the view "By group": at most `cap` across all
+ * sections together. The cameras with an active detection come first. Then
+ * the sections take turns: each section gets one live tile before any
+ * section gets a second. This function does not pick a spotlight; the
+ * home screen has none.
+ */
+export function pickLiveAcross(sections: LiveCandidate[][], cap: number, opts: { active?: string[] } = {}): Set<string> {
+  const playable = new Set(sections.flat().filter((t) => t.canPlay).map((t) => t.name));
+  const out = new Set<string>();
+  const add = (name: string) => {
+    if (out.size < cap && playable.has(name)) out.add(name);
+  };
+  for (const name of opts.active ?? []) add(name);
+  const longest = Math.max(0, ...sections.map((s) => s.length));
+  for (let i = 0; i < longest; i++) for (const s of sections) if (s[i]) add(s[i].name);
+  return out;
+}
