@@ -1,6 +1,11 @@
 import { useLayoutEffect, useRef, useState } from "react";
+import { contentSize } from "../lib/grid";
 
-/** The content size of an element, kept current with a ResizeObserver. */
+/**
+ * The content size of an element (the space inside its padding), kept
+ * current with a ResizeObserver. The observer watches the content box, so a
+ * change of the padding alone also gives a new size.
+ */
 export function useElementSize<T extends HTMLElement>() {
   const ref = useRef<T>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -8,8 +13,14 @@ export function useElementSize<T extends HTMLElement>() {
     const el = ref.current;
     if (!el) return;
     const measure = () => {
-      const width = Math.round(el.clientWidth);
-      const height = Math.round(el.clientHeight);
+      const cs = getComputedStyle(el);
+      const px = (v: string) => parseFloat(v) || 0;
+      const { width, height } = contentSize(el.clientWidth, el.clientHeight, {
+        top: px(cs.paddingTop),
+        right: px(cs.paddingRight),
+        bottom: px(cs.paddingBottom),
+        left: px(cs.paddingLeft),
+      });
       setSize((s) => (s.width === width && s.height === height ? s : { width, height }));
     };
     measure();

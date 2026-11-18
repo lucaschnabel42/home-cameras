@@ -23,11 +23,38 @@ export function homeColumns(count: number, width: number): number {
   return Math.max(1, Math.min(fit, Math.ceil(Math.sqrt(count))));
 }
 
+/** The padding of an element, in CSS pixels. */
+export interface Padding {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
+/**
+ * The box that the tiles can fill: the padding box of an element
+ * (`clientWidth` x `clientHeight`) less its padding. A layout made for the
+ * padding box picks cells that are too large for the real space.
+ */
+export function contentSize(clientWidth: number, clientHeight: number, pad: Padding): { width: number; height: number } {
+  return {
+    width: Math.max(0, Math.round(clientWidth - pad.left - pad.right)),
+    height: Math.max(0, Math.round(clientHeight - pad.top - pad.bottom)),
+  };
+}
+
 export interface WallLayout {
   cols: number;
   rows: number;
   /** The width of the picture of a 16:9 camera in this layout. */
   tileWidth: number;
+  /**
+   * The height of one row: the height that the highest picture needs at the
+   * full width of a cell, and at most an equal share of the box. When the
+   * width limits the pictures, the rows are lower than their share, and the
+   * grid sits together in the middle with no empty band between the rows.
+   */
+  rowHeight: number;
 }
 
 /**
@@ -36,13 +63,17 @@ export interface WallLayout {
  * other. The layout picks the column count that gives the largest 16:9
  * picture in a box of `width` x `height`. On a tie it picks the layout with
  * fewer empty cells.
+ *
+ * Not modelled: the column count is chosen for 16:9 pictures. A camera of
+ * another shape gets a row that is high enough for it, but it does not
+ * change the count of columns.
  */
 export function wallLayout(aspects: number[], width: number, height: number, gap = WALL_GAP): WallLayout {
   const n = aspects.length;
-  if (n === 0 || width <= 0 || height <= 0) return { cols: 1, rows: 1, tileWidth: 0 };
+  if (n === 0 || width <= 0 || height <= 0) return { cols: 1, rows: 1, tileWidth: 0, rowHeight: 0 };
   const tall = aspects.filter(isTall).length;
   const cells = n + tall;
-  let best: WallLayout & { empty: number } = { cols: 1, rows: cells, tileWidth: -1, empty: 0 };
+  let best = { cols: 1, rows: cells, tileWidth: -1, empty: 0 };
   for (let cols = 1; cols <= n; cols++) {
     // A tall camera needs two rows, so a layout of one row cannot hold it.
     const rows = Math.max(Math.ceil(cells / cols), tall > 0 ? 2 : 1);
@@ -54,5 +85,10 @@ export function wallLayout(aspects: number[], width: number, height: number, gap
       best = { cols, rows, tileWidth, empty };
     }
   }
-  return { cols: best.cols, rows: best.rows, tileWidth: Math.floor(best.tileWidth) };
+  const cellW = (width - gap * (best.cols - 1)) / best.cols;
+  const cellH = (height - gap * (best.rows - 1)) / best.rows;
+  // A tall camera has two rows and the gap between them.
+  const need = Math.max(...aspects.map((a) => (isTall(a) ? (cellW / a - gap) / 2 : cellW / a)));
+  const rowHeight = Math.max(0, Math.floor(Math.min(cellH, need)));
+  return { cols: best.cols, rows: best.rows, tileWidth: Math.floor(best.tileWidth), rowHeight };
 }

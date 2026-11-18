@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 600" width="1240" height="600" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">home-cameras architecture</title>
+  <desc id="d">Cameras send video to the recorder on one computer. Wyze cameras go through the Wyze bridge. The recorder records and detects, the exporter cuts clips, and the helper sends alerts. The Caddy web server serves the app to a phone or a desktop on the home network, and to a phone away from home through Tailscale.</desc>
+  <defs><marker id="a-8b949e" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#8b949e"/></marker><marker id="a-4d8af0" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4d8af0"/></marker></defs>
+  <rect x="0" y="0" width="1240" height="600" rx="20" fill="#0d1117"/>
+  <rect x="270" y="40" width="680" height="520" rx="18" fill="#151a21" stroke="#2d333b" stroke-width="1.5"/>
+  <text x="292" y="72" font-size="14" font-weight="600" fill="#9198a1">One computer in your home (Docker)</text>
+
+  
+  <g>
+    <rect x="30" y="110" width="200" height="90" rx="14" fill="#1c2128" stroke="#3d444d" stroke-width="1.5"/>
+    <text x="48" y="142" font-size="17" font-weight="600" fill="#e6edf3">Wyze cameras</text>
+    <text x="48" y="166" font-size="14" fill="#9198a1">Wi-Fi, through the</text><text x="48" y="186" font-size="14" fill="#9198a1">Wyze bridge</text>
+  </g>
+  
+  <g>
+    <rect x="30" y="290" width="200" height="90" rx="14" fill="#1c2128" stroke="#3d444d" stroke-width="1.5"/>
+    <text x="48" y="322" font-size="17" font-weight="600" fill="#e6edf3">RTSP cameras</text>
+    <text x="48" y="346" font-size="14" fill="#9198a1">Any camera with an</text><text x="48" y="366" font-size="14" fill="#9198a1">RTSP stream</text>
+  </g>
+
+  
+  <g>
+    <rect x="296" y="104" width="200" height="90" rx="14" fill="#1c2128" stroke="#3d444d" stroke-width="1.5"/>
+    <text x="314" y="136" font-size="17" font-weight="600" fill="#e6edf3">wyze-bridge</text>
+    <text x="314" y="160" font-size="14" fill="#9198a1">Optional. Makes an</text><text x="314" y="180" font-size="14" fill="#9198a1">RTSP stream</text>
+  </g>
+  
+  <g>
+    <rect x="540" y="190" width="220" height="130" rx="14" fill="#16243b" stroke="#4d8af0" stroke-width="1.5"/>
+    <text x="558" y="222" font-size="17" font-weight="600" fill="#e6edf3">frigate</text>
+    <text x="558" y="246" font-size="14" fill="#9198a1">Records all day</text><text x="558" y="266" font-size="14" fill="#9198a1">Finds people, animals,</text><text x="558" y="286" font-size="14" fill="#9198a1">cars; go2rtc live view</text>
+  </g>
+  
+  <g>
+    <rect x="296" y="410" width="200" height="90" rx="14" fill="#1c2128" stroke="#3d444d" stroke-width="1.5"/>
+    <text x="314" y="442" font-size="17" font-weight="600" fill="#e6edf3">clip-exporter</text>
+    <text x="314" y="466" font-size="14" fill="#9198a1">Cuts a padded clip</text><text x="314" y="486" font-size="14" fill="#9198a1">of each event</text>
+  </g>
+  
+  <g>
+    <rect x="540" y="410" width="220" height="90" rx="14" fill="#1c2128" stroke="#3d444d" stroke-width="1.5"/>
+    <text x="558" y="442" font-size="17" font-weight="600" fill="#e6edf3">cam-helper</text>
+    <text x="558" y="466" font-size="14" fill="#9198a1">Phone alerts. Optional:</text><text x="558" y="486" font-size="14" fill="#9198a1">summaries, pet day</text>
+  </g>
+  
+  <g>
+    <rect x="790" y="225" width="140" height="110" rx="14" fill="#1c2128" stroke="#3d444d" stroke-width="1.5"/>
+    <text x="808" y="257" font-size="17" font-weight="600" fill="#e6edf3">ui</text>
+    <text x="808" y="281" font-size="14" fill="#9198a1">Caddy. Serves</text><text x="808" y="301" font-size="14" fill="#9198a1">the app and an</text><text x="808" y="321" font-size="14" fill="#9198a1">API allow list</text>
+  </g>
+
+  
+  <g>
+    <rect x="1010" y="110" width="200" height="80" rx="14" fill="#1c2128" stroke="#3d444d" stroke-width="1.5"/>
+    <text x="1028" y="142" font-size="17" font-weight="600" fill="#e6edf3">Phone</text>
+    <text x="1028" y="166" font-size="14" fill="#9198a1">At home</text>
+  </g>
+  
+  <g>
+    <rect x="1010" y="230" width="200" height="80" rx="14" fill="#1c2128" stroke="#3d444d" stroke-width="1.5"/>
+    <text x="1028" y="262" font-size="17" font-weight="600" fill="#e6edf3">Desktop</text>
+    <text x="1028" y="286" font-size="14" fill="#9198a1">Browser at home</text>
+  </g>
+  
+  <g>
+    <rect x="1010" y="400" width="200" height="90" rx="14" fill="#1c2128" stroke="#3d444d" stroke-width="1.5"/>
+    <text x="1028" y="432" font-size="17" font-weight="600" fill="#e6edf3">Phone away</text>
+    <text x="1028" y="456" font-size="14" fill="#9198a1">Through your</text><text x="1028" y="476" font-size="14" fill="#9198a1">Tailscale network</text>
+  </g>
+
+  <path d="M230,155 L290,152" fill="none" stroke="#8b949e" stroke-width="2"  marker-end="url(#a-8b949e)"/>
+  <path d="M496,150 C520,150 520,220 536,224" fill="none" stroke="#8b949e" stroke-width="2"  marker-end="url(#a-8b949e)"/>
+  <path d="M230,335 C380,335 420,290 536,286" fill="none" stroke="#8b949e" stroke-width="2"  marker-end="url(#a-8b949e)"/>
+  <path d="M650,320 C650,370 480,360 420,406" fill="none" stroke="#8b949e" stroke-width="2"  marker-end="url(#a-8b949e)"/>
+  <text x="662" y="366" font-size="13" fill="#9198a1" text-anchor="start">recordings</text>
+  <path d="M760,255 L786,262" fill="none" stroke="#8b949e" stroke-width="2"  marker-end="url(#a-8b949e)"/>
+  <path d="M760,455 C800,455 830,400 850,339" fill="none" stroke="#8b949e" stroke-width="2"  marker-end="url(#a-8b949e)"/>
+  <path d="M930,262 C970,262 975,150 1006,150" fill="none" stroke="#4d8af0" stroke-width="2"  marker-end="url(#a-4d8af0)"/>
+  <path d="M930,282 L1006,270" fill="none" stroke="#4d8af0" stroke-width="2"  marker-end="url(#a-4d8af0)"/>
+  <text x="1110" y="216" font-size="13" fill="#9198a1" text-anchor="middle">home network</text>
+  <path d="M930,312 C975,330 960,445 1006,445" fill="none" stroke="#4d8af0" stroke-width="2" stroke-dasharray="7 6" marker-end="url(#a-4d8af0)"/>
+  <rect x="962" y="352" width="96" height="28" rx="14" fill="#0d1117" stroke="#4d8af0" stroke-width="1.5"/>
+  <text x="1010" y="371" font-size="13" font-weight="600" fill="#4d8af0" text-anchor="middle">Tailscale</text>
+</svg>

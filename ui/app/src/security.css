@@ -133,11 +133,23 @@
   min-height: 0;
   padding: 6px;
 }
+/* While the controls show, the wall moves down under them, so no control
+   covers a tile, its name or its mark. Hidden controls give the whole
+   screen back to the cameras: no bar stays on screen. 64 px is the top
+   margin of the controls (12 px), their height (44 px) and a gap (8 px).
+   The change has no transition: an animated padding lays out the whole
+   wall again on each frame. */
+.security:not(.idle) .wall-area {
+  padding-top: 64px;
+}
 .wall-grid {
   display: grid;
   gap: 6px;
   height: 100%;
   grid-auto-flow: row dense;
+  /* The rows have the height of their pictures (lib/grid.ts), so the grid
+     can be lower than the box. It then sits in the middle. */
+  align-content: center;
 }
 .wall-cell {
   position: relative;
@@ -422,4 +434,14 @@
 /* One camera on the wall: the large tile takes the whole width. */
 .wall-area.spotlight.solo {
   grid-template-columns: minmax(0, 1fr);
+}
+/* "Connecting" sits at the top left of a wall tile: the name is at the
+   bottom left and the mark at the bottom right. */
+.wall-pic .live .status {
+  top: 8px;
+  bottom: auto;
+  left: 8px;
+  z-index: 3;
+  font-size: 12px;
+  padding: 4px 10px;
 }

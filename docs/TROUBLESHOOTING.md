@@ -269,7 +269,7 @@ Use one of the names in the line.
 ### Phone alerts do not arrive
 
 1. On an iPhone the app must run from the Home Screen icon, and iOS must be 16.4 or later. The app tells you when it is not.
-2. The **Alerts** page must say `Alerts are on for this phone`. Tap **Send a test alert**.
+2. The **Alerts** page must say `Alerts are on for this device`. Tap **Send a test alert**.
 3. The app says `The alert service is not answering`. Run `docker compose logs --tail 50 cam-helper`.
 4. The app says `Alerts are turned off for this app`. On the phone open Settings, Notifications, Cameras, and allow notifications.
 5. Alerts exist for only three things: a dog that barks, a smoke alarm, and breaking glass. A bark alert needs `INDOOR_CAMERAS` and a camera with sound.

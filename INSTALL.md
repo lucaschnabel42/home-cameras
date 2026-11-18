@@ -1,11 +1,13 @@
 # Install runbook
 
-This file is for the Claude that installs the recorder on the computer of a person who does not write code.
+This file is for the assistant that installs the recorder on the computer of a person who does not write code. The assistant is an AI assistant that can run commands in a terminal on this computer, for example Claude Code, OpenAI Codex, or Gemini CLI. Any other assistant with a terminal works the same way.
 
-## Rules for Claude
+No assistant? You can follow this guide by hand. Each command goes into a terminal. On macOS, open the Terminal app. On Windows, open PowerShell from the Start menu. Do the steps marked **Who:** the assistant yourself, and do the steps marked **You do this:** as written.
+
+## Rules for the assistant
 
 - Never ask the person for a secret in the chat. Secrets are: the Wyze password, the Wyze API key, and any RTSP address that holds a camera password.
-- The person types each secret into a file with a text editor. Claude opens the file for the person.
+- The person types each secret into a file with a text editor. The assistant opens the file for the person.
 - Never print `.env`, `cameras.yml`, or `frigate/config/config.yml`. All three can hold a password.
 - Never pass a secret as a command argument. Do not use `--wyze-password`, `--wyze-api-key`, `--wyze-api-id`, or `--wyze-email`.
 - Never run `docker compose config` or `docker inspect` on this install. Both print the values of `.env`.
@@ -17,7 +19,7 @@ This file is for the Claude that installs the recorder on the computer of a pers
 
 ## Step 1. Check Docker
 
-**Who:** Claude. If Docker is missing, the person.
+**Who:** the assistant. If Docker is missing, the person.
 
 Command:
 
@@ -47,7 +49,7 @@ If a command is missing, Docker is not installed.
   4. Search for **Docker Desktop** in the Start menu, open it, and click **Accept**.
   5. Docker Desktop does not start by itself after the install. The page says so.
   6. Windows may ask you to restart. Restart, then open Docker Desktop again.
-- **Linux:** follow https://docs.docker.com/engine/install/ for your Linux type. Claude can run the commands. They need `sudo`, so you type your password in the terminal when it asks.
+- **Linux:** follow https://docs.docker.com/engine/install/ for your Linux type. The assistant can run the commands. They need `sudo`, so you type your password in the terminal when it asks.
   For Ubuntu the page gives the apt repository steps and the packages `docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin`.
   To run Docker without `sudo`, follow https://docs.docker.com/engine/install/linux-postinstall/ (`sudo groupadd docker`, `sudo usermod -aG docker $USER`, then log out and in). That page warns that the `docker` group gives root-level rights.
 
@@ -55,7 +57,7 @@ Sources: the three Docker pages named above, read on 2026-11-18.
 
 ## Step 2. Get the code
 
-**Who:** Claude.
+**Who:** the assistant.
 
 Ask the person for the link to the repository, if you do not have it. Put the folder in the home folder of the person. Do not use a folder that a cloud service syncs (iCloud Drive, OneDrive).
 
@@ -72,16 +74,16 @@ If `git` is missing: on a Mac, the system offers to install the command line too
 
 ## Step 3. Ask the questions
 
-**Who:** Claude asks, the person answers. Ask all of these at one time.
+**Who:** the assistant asks, the person answers. Ask all of these at one time.
 
-1. In which city are you? Claude turns the answer into a name of the form `Area/City`, for example `America/New_York` or `Europe/Berlin`. Never guess it from the computer: the Windows command `tzutil /g` gives a Windows name, not this form.
+1. In which city are you? The assistant turns the answer into a name of the form `Area/City`, for example `America/New_York` or `Europe/Berlin`. Never guess it from the computer: the Windows command `tzutil /g` gives a Windows name, not this form.
 2. Do you have Wyze cameras? (yes or no)
 3. Do you have other cameras with an RTSP stream? (yes or no)
 4. Does your Wyze account use two-step login (a code from an authenticator app)? If yes, the person also needs the two-step key in Step 5.
 
 ## Step 4. Write the settings (`init`)
 
-**Who:** Claude.
+**Who:** the assistant.
 
 Command (replace the time zone):
 
@@ -121,9 +123,9 @@ Skip this step if the person has no Wyze camera.
 2. Sign in with your Wyze account.
 3. Create an API key. The page shows a **Key ID** and an **API Key**. Keep the page open.
 
-**You do this:** type your Wyze details into the file `.env`. Claude opens the file for you.
+**You do this:** type your Wyze details into the file `.env`. The assistant opens the file for you.
 
-1. Claude runs the open command: on a Mac `open -e .env`, on Windows `notepad .env`, on Linux `nano .env`.
+1. The assistant runs the open command: on a Mac `open -e .env`, on Windows `notepad .env`, on Linux `nano .env`.
 2. Find these four lines. Each ends with `=` and nothing after it.
 3. Type each value directly after the `=` sign, with no space:
    - `WYZE_EMAIL=` your Wyze email
@@ -132,9 +134,9 @@ Skip this step if the person has no Wyze camera.
    - `API_KEY=` the API Key from the Wyze page
 4. If a value has a space, `$`, `#`, or a double quote in it, put the whole value in single quotes, for example `WYZE_PASSWORD='pass word$1'`. Without the quotes Docker reads it wrong. A password with a single quote `'` cannot be used; change it in the Wyze app first. On a Mac, TextEdit may change straight quotes to curly quotes. Turn off Edit, Substitutions, Smart Quotes first.
 5. Only if your Wyze account has two-step login: put the two-step key after `WYZE_TOTP_KEY=`. This is the secret (a long code of letters and digits) that your authenticator app was set up with, not the six-digit code. Wyze shows this key only when two-step login is set up. If the person did not keep it, two-step login must be set up again in the Wyze app to see a new key. That path in the Wyze app is not verified.
-6. Save the file and close it. Tell Claude it is done. Do not type the values in the chat.
+6. Save the file and close it. Tell the assistant it is done. Do not type the values in the chat.
 
-**Who:** Claude. Run `init` again with no secret:
+**Who:** the assistant. Run `init` again with no secret:
 
 ```text
 docker compose run --rm setup init
@@ -152,7 +154,7 @@ If the output has a line `FIX  .env, <KEY>: <what>`, Docker would read that valu
 
 Skip this step if the person has only Wyze cameras.
 
-**Who:** Claude makes the file. The person fills it in.
+**Who:** the assistant makes the file. The person fills it in.
 
 Command: on macOS and Linux `cp cameras.example.yml cameras.yml`. On Windows `Copy-Item cameras.example.yml cameras.yml`.
 
@@ -160,7 +162,7 @@ Command: on macOS and Linux `cp cameras.example.yml cameras.yml`. On Windows `Co
 
 1. Turn on RTSP in the app of your camera. Many cameras need this first. The camera maker's manual shows how.
 2. Find the RTSP address of the camera in the app or the manual. It starts with `rtsp://`. It often holds the camera user name and password.
-3. Claude opens the file (`open -e cameras.yml`, `notepad cameras.yml`, or `nano cameras.yml`).
+3. The assistant opens the file (`open -e cameras.yml`, `notepad cameras.yml`, or `nano cameras.yml`).
 4. Delete the two example entries. For each of your cameras, write an entry in the same form:
 
    ```text
@@ -171,13 +173,13 @@ Command: on macOS and Linux `cp cameras.example.yml cameras.yml`. On Windows `Co
    The `name` has letters, digits, and `_` only. The optional `sub:` line is a smaller stream of the same camera. Detection uses it. `audio: true` turns on sound detection for a camera whose stream has sound.
 5. Save the file and close it. Do not type the address in the chat.
 
-Check: Claude runs Step 8 (`sync`). A wrong file gives a line that starts with `FIX  cameras.yml`. Quote that line to the person and ask the person to fix the file.
+Check: the assistant runs Step 8 (`sync`). A wrong file gives a line that starts with `FIX  cameras.yml`. Quote that line to the person and ask the person to fix the file.
 
 ## Step 7. Start the Wyze bridge
 
 Skip this step if the person has no Wyze camera.
 
-**Who:** Claude.
+**Who:** the assistant.
 
 Command:
 
@@ -191,7 +193,7 @@ If the state is `exited`, run `docker compose logs --tail 50 wyze-bridge`. See `
 
 ## Step 8. Add the cameras to Frigate (`sync`)
 
-**Who:** Claude. The order does not matter: if Frigate started first and wrote its own empty config, `sync` moves it aside and says so.
+**Who:** the assistant. The order does not matter: if Frigate started first and wrote its own empty config, `sync` moves it aside and says so.
 
 Command:
 
@@ -213,7 +215,7 @@ With many cameras `sync` raises the shared memory of Frigate and prints `Restart
 
 ## Step 9. Start everything
 
-**Who:** Claude.
+**Who:** the assistant.
 
 Command:
 
@@ -229,7 +231,7 @@ If a port is in use, the error names it, for example `Bind for 127.0.0.1:5010 fa
 
 ## Step 10. Check the install (`doctor`)
 
-**Who:** Claude.
+**Who:** the assistant.
 
 Command:
 
@@ -261,7 +263,7 @@ Frigate's own pages (settings, all recordings) are at http://127.0.0.1:5011 on t
 
 Tailscale is a private network between your own devices. The app is not on the public internet.
 
-**Who:** the person installs and signs in. Claude runs the commands.
+**Who:** the person installs and signs in. The assistant runs the commands.
 
 **You do this:**
 
@@ -271,7 +273,7 @@ Tailscale is a private network between your own devices. The app is not on the p
 4. Turn on **MagicDNS**, if it is off.
 5. Under **HTTPS Certificates**, click **Enable HTTPS**. Tailscale warns you: the names of your devices go into a public list of certificates. Do not turn it on if a device name holds private words. You can rename a device first.
 
-**Who:** Claude. Command:
+**Who:** the assistant. Command:
 
 ```text
 tailscale serve --bg --https=443 http://127.0.0.1:5010
@@ -345,7 +347,7 @@ If the test alert does not arrive, see `docs/TROUBLESHOOTING.md`, "Phone alerts 
 
 The containers use `restart: unless-stopped`. Docker starts them again when Docker starts. So the computer must start Docker by itself.
 
-**Who:** Claude shows the person where. The person clicks. Status of each item:
+**Who:** the assistant shows the person where. The person clicks. Status of each item:
 
 | Item | What to do | Checked in a document |
 |------|------------|-----------------------|
@@ -353,7 +355,7 @@ The containers use `restart: unless-stopped`. Docker starts them again when Dock
 | Docker on Linux | Ubuntu and Debian start Docker on boot. On another system run `sudo systemctl enable docker.service containerd.service` | Yes. https://docs.docker.com/engine/install/linux-postinstall/ |
 | Tailscale `serve` after a restart | Nothing to do with `--bg` | Yes. https://tailscale.com/kb/1242/tailscale-serve |
 | Automatic sign-in on a Mac | System Settings, Users & Groups, **Automatically log in as**, choose the account, enter its password. It may be dimmed when FileVault is on. | Yes. https://support.apple.com/en-us/102316 |
-| Mac starts after a power failure | System Settings, Energy, **Start up automatically after a power failure** | No. The Apple pages that I read do not name this setting for a current Mac mini. The name may differ on a new Mac. Look on the Energy page. Claude can read the setting with `pmset -g` and look for `autorestart`. This command is not verified. |
+| Mac starts after a power failure | System Settings, Energy, **Start up automatically after a power failure** | No. The Apple pages that I read do not name this setting for a current Mac mini. The name may differ on a new Mac. Look on the Energy page. The assistant can read the setting with `pmset -g` and look for `autorestart`. This command is not verified. |
 | Mac does not sleep | System Settings, Energy, keep the computer awake when the display is off | No. Same reason. |
 | Automatic sign-in on Windows | Not covered here | No. |
 | Windows or PC starts after a power failure | A setting in the BIOS of the computer. Its name differs by maker. | No. |
@@ -380,7 +382,7 @@ Event clips in `media/exports` stay for ever by default. To delete old clips, se
 
 Skip unless the person asks. This needs Ollama, a separate program that runs a model on the computer. The person installs it. The model is `qwen2.5vl:7b`.
 
-**Who:** the person installs Ollama from https://ollama.com. Claude runs:
+**Who:** the person installs Ollama from https://ollama.com. The assistant runs:
 
 ```text
 ollama pull qwen2.5vl:7b
@@ -398,7 +400,7 @@ On Linux, Ollama listens only on the computer itself by default. A container may
 
 Skip unless the person asks. The pet day shows a story of what a dog or a cat did all day.
 
-**Who:** Claude asks for the name, the camera of the room, dog or cat, and male or female. The camera name is one of the names that `sync` printed.
+**Who:** the assistant asks for the name, the camera of the room, dog or cat, and male or female. The camera name is one of the names that `sync` printed.
 
 ```text
 docker compose run --rm setup init --pet-name Rex --pet-camera living_room --pet-label dog --pet-sex male

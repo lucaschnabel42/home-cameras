@@ -257,11 +257,24 @@ export function SecurityMode({
   const cameraLayer = layer?.kind === "camera" ? layer : null;
   const cameraIndex = cameraLayer ? cameras.findIndex((c) => c.name === cameraLayer.name) : -1;
   const showControls = !idle || layer !== null;
+  // A touch on the wall while the controls are hidden shows the controls and
+  // does nothing else: the wall moves down under them (security.css), so the
+  // tile under the finger at the touch is not the tile at the lift.
+  const wakeTouch = useRef(false);
 
   return (
     <motion.div
       ref={root}
       className={showControls ? "security" : "security idle"}
+      onPointerDownCapture={(e) => {
+        wakeTouch.current = !showControls && e.pointerType !== "mouse";
+      }}
+      onClickCapture={(e) => {
+        if (!wakeTouch.current) return;
+        wakeTouch.current = false;
+        e.stopPropagation();
+        e.preventDefault();
+      }}
       role="dialog"
       aria-modal="true"
       aria-label="Security mode"
@@ -311,7 +324,7 @@ export function SecurityMode({
           ) : (
             <div
               className="wall-grid"
-              style={{ gridTemplateColumns: `repeat(${grid.cols}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${grid.rows}, minmax(0, 1fr))` }}
+              style={{ gridTemplateColumns: `repeat(${grid.cols}, minmax(0, 1fr))`, gridTemplateRows: grid.rowHeight > 0 ? `repeat(${grid.rows}, ${grid.rowHeight}px)` : `repeat(${grid.rows}, minmax(0, 1fr))` }}
             >
               {onWall.map((c) =>
                 isTall(c.aspect) && !c.liveOnly && grid.rows > 1 ? (
